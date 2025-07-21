@@ -32,21 +32,21 @@ create_secrets() {
         echo "⚠️  deepgram-secret already exists. Skipping..."
     else
         echo "Creating deepgram-secret..."
-        modal secret create deepgram-secret DEEPGRAM_API_KEY="60fc5e043d132c9499fddf86b5b5d84da809d378"
+        modal secret create deepgram-secret DEEPGRAM_API_KEY="key"
     fi
     
     if modal secret list 2>/dev/null | grep -q "groq-secret"; then
         echo "⚠️  groq-secret already exists. Skipping..."
     else
         echo "Creating groq-secret..."
-        modal secret create groq-secret GROQ_API_KEY="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"
+        modal secret create groq-secret GROQ_API_KEY="key"
     fi
     
     if modal secret list 2>/dev/null | grep -q "elevenlabs-secret"; then
         echo "⚠️  elevenlabs-secret already exists. Skipping..."
     else
         echo "Creating elevenlabs-secret..."
-        modal secret create elevenlabs-secret ELEVENLABS_API_KEY="sk_eba2065306ae30613bb594dcb079f341ab35c0c03eadfcb0"
+        modal secret create elevenlabs-secret ELEVENLABS_API_KEY="key"
     fi
     
     echo "✅ Secrets configured"
