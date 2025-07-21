@@ -1,0 +1,27 @@
+# Voice AI Backend Dependencies
+# Core Framework
+fastapi>=0.104.0
+uvicorn>=0.24.0
+websockets>=12.0
+
+# AI Service SDKs
+deepgram-sdk>=2.12.0
+groq>=0.4.0
+elevenlabs>=0.2.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-multipart>=0.0.6
+
+# Development and Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.25.0
+
+# Logging and Monitoring
+structlog>=23.0.0
+
+# Type hints
+typing-extensions>=4.8.0 
