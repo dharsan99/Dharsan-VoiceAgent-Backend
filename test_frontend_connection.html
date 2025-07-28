@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .log { background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; margin: 10px 0; border-radius: 5px; max-height: 400px; overflow-y: auto; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Frontend Connection Test</h1>
+    
+    <div id="status"></div>
+    
+    <button onclick="testWebSocket()">Test WebSocket Connection</button>
+    <button onclick="testWHIP()">Test WHIP Connection</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    
+    <div id="logs" class="log"></div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const logsDiv = document.getElementById('logs');
+        
+        // Production URLs
+        const WHIP_URL = 'http://35.200.237.68:8001/whip';
+        const ORCHESTRATOR_WS_URL = 'ws://34.47.230.178:8001/ws';
+        const ORCHESTRATOR_HTTP_URL = 'http://34.47.230.178:8001';
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            logEntry.className = type;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(message, type = 'info') {
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function clearLogs() {
+            logsDiv.innerHTML = '';
+        }
+        
+        async function testWebSocket() {
+            log('🔗 Testing WebSocket connection to orchestrator...');
+            updateStatus('Testing WebSocket connection...', 'info');
+            
+            try {
+                const websocket = new WebSocket(ORCHESTRATOR_WS_URL);
+                
+                websocket.onopen = () => {
+                    log('✅ WebSocket connection opened successfully', 'success');
+                    updateStatus('WebSocket connected successfully!', 'success');
+                    
+                    // Send session info
+                    const sessionInfo = {
+                        type: 'session_info',
+                        session_id: 'test_session_' + Date.now(),
+                        version: 'phase2'
+                    };
+                    log('📤 Sending session info: ' + JSON.stringify(sessionInfo));
+                    websocket.send(JSON.stringify(sessionInfo));
+                    
+                    // Send ping
+                    setTimeout(() => {
+                        log('📡 Sending ping...');
+                        websocket.send(JSON.stringify({ type: 'ping' }));
+                    }, 1000);
+                };
+                
+                websocket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log('📨 Received message: ' + JSON.stringify(data), 'success');
+                        
+                        if (data.type === 'pong') {
+                            log('📡 Received pong response', 'success');
+                        } else if (data.type === 'final_transcript') {
+                            log('🎤 Received transcript: ' + data.transcript, 'success');
+                        } else if (data.type === 'ai_response') {
+                            log('🤖 Received AI response: ' + data.response, 'success');
+                        } else if (data.type === 'error') {
+                            log('❌ Received error: ' + data.error, 'error');
+                        }
+                    } catch (e) {
+                        log('📨 Received raw message: ' + event.data);
+                    }
+                };
+                
+                websocket.onerror = (error) => {
+                    log('❌ WebSocket error: ' + error, 'error');
+                    updateStatus('WebSocket connection failed!', 'error');
+                };
+                
+                websocket.onclose = (event) => {
+                    log('🔌 WebSocket closed: ' + event.code + ' ' + event.reason, 'error');
+                    updateStatus('WebSocket connection closed!', 'error');
+                };
+                
+                // Close after 10 seconds
+                setTimeout(() => {
+                    websocket.close();
+                    log('🔌 Closing WebSocket connection after 10 seconds');
+                }, 10000);
+                
+            } catch (error) {
+                log('❌ Failed to create WebSocket: ' + error, 'error');
+                updateStatus('Failed to create WebSocket!', 'error');
+            }
+        }
+        
+        async function testWHIP() {
+            log('🎤 Testing WHIP connection to media server...');
+            updateStatus('Testing WHIP connection...', 'info');
+            
+            try {
+                // Get user media
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: true, 
+                    video: false 
+                });
+                log('✅ Got user media stream', 'success');
+                
+                // Create RTCPeerConnection
+                const pc = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                });
+                
+                // Add audio track
+                stream.getTracks().forEach(track => {
+                    pc.addTrack(track, stream);
+                    log('📡 Added audio track to peer connection');
+                });
+                
+                // Create offer
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                log('📤 Created SDP offer');
+                
+                // Send offer to WHIP endpoint
+                const response = await fetch(WHIP_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/sdp',
+                        'X-Session-ID': 'test_session_' + Date.now()
+                    },
+                    body: offer.sdp
+                });
+                
+                if (response.ok) {
+                    const answerSdp = await response.text();
+                    log('📥 Received SDP answer from media server', 'success');
+                    
+                    // Set remote description
+                    await pc.setRemoteDescription({
+                        type: 'answer',
+                        sdp: answerSdp
+                    });
+                    log('✅ Set remote description', 'success');
+                    updateStatus('WHIP connection successful!', 'success');
+                    
+                    // Monitor connection state
+                    pc.onconnectionstatechange = () => {
+                        log('🔗 Connection state: ' + pc.connectionState);
+                        if (pc.connectionState === 'connected') {
+                            log('✅ WHIP connection established!', 'success');
+                        }
+                    };
+                    
+                    pc.oniceconnectionstatechange = () => {
+                        log('🧊 ICE connection state: ' + pc.iceConnectionState);
+                    };
+                    
+                } else {
+                    log('❌ WHIP request failed: ' + response.status + ' ' + response.statusText, 'error');
+                    updateStatus('WHIP connection failed!', 'error');
+                }
+                
+                // Clean up after 10 seconds
+                setTimeout(() => {
+                    stream.getTracks().forEach(track => track.stop());
+                    pc.close();
+                    log('🔌 Closed WHIP connection');
+                }, 10000);
+                
+            } catch (error) {
+                log('❌ WHIP test failed: ' + error, 'error');
+                updateStatus('WHIP test failed!', 'error');
+            }
+        }
+        
+        // Auto-test on load
+        window.onload = () => {
+            log('🚀 Frontend connection test started');
+            updateStatus('Ready to test connections', 'info');
+        };
+    </script>
+</body>
+</html> 

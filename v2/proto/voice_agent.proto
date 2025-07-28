@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package voice_agent;
+
+option go_package = "voice-agent/proto";
+
+// Voice Agent Service - Direct Communication Protocol
+// Replaces Kafka hop with streaming gRPC for lower latency
+
+service VoiceAgentService {
+  // Stream audio from Media Server to Orchestrator
+  rpc StreamAudio(stream AudioChunk) returns (stream AudioResponse);
+  
+  // Control messages for pipeline management
+  rpc SendControlMessage(ControlMessage) returns (ControlResponse);
+  
+  // Health check
+  rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+// Audio chunk from Media Server to Orchestrator
+message AudioChunk {
+  string session_id = 1;
+  bytes audio_data = 2;
+  int64 timestamp = 3;
+  AudioMetadata metadata = 4;
+}
+
+// Audio metadata for processing
+message AudioMetadata {
+  float energy_level = 1;
+  bool voice_activity = 2;
+  float confidence = 3;
+  string audio_format = 4; // e.g., "opus", "pcm"
+  int32 sample_rate = 5;
+  int32 channels = 6;
+}
+
+// Audio response from Orchestrator to Media Server
+message AudioResponse {
+  string session_id = 1;
+  bytes audio_data = 2;
+  int64 timestamp = 3;
+  ResponseType response_type = 4;
+  string transcript = 5;
+  string ai_response = 6;
+}
+
+// Response types
+enum ResponseType {
+  RESPONSE_TYPE_UNSPECIFIED = 0;
+  RESPONSE_TYPE_TTS_AUDIO = 1;
+  RESPONSE_TYPE_INTERIM_TRANSCRIPT = 2;
+  RESPONSE_TYPE_FINAL_TRANSCRIPT = 3;
+  RESPONSE_TYPE_AI_RESPONSE = 4;
+  RESPONSE_TYPE_ERROR = 5;
+}
+
+// Control message for pipeline management
+message ControlMessage {
+  string session_id = 1;
+  ControlType control_type = 2;
+  map<string, string> parameters = 3;
+  int64 timestamp = 4;
+}
+
+// Control types
+enum ControlType {
+  CONTROL_TYPE_UNSPECIFIED = 0;
+  CONTROL_TYPE_START_LISTENING = 1;
+  CONTROL_TYPE_STOP_LISTENING = 2;
+  CONTROL_TYPE_TRIGGER_LLM = 3;
+  CONTROL_TYPE_RESET_SESSION = 4;
+  CONTROL_TYPE_PAUSE_PIPELINE = 5;
+  CONTROL_TYPE_RESUME_PIPELINE = 6;
+}
+
+// Control response
+message ControlResponse {
+  string session_id = 1;
+  bool success = 2;
+  string message = 3;
+  int64 timestamp = 4;
+}
+
+// Health check request
+message HealthRequest {
+  string service_name = 1;
+  int64 timestamp = 2;
+}
+
+// Health check response
+message HealthResponse {
+  string service_name = 1;
+  bool healthy = 2;
+  string status = 3;
+  int64 timestamp = 4;
+  map<string, string> metadata = 5;
+} 

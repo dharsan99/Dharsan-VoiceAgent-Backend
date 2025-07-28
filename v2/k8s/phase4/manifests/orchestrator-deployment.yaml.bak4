@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  namespace: voice-agent-phase4
+  labels:
+    app: orchestrator
+    component: orchestration
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orchestrator
+      component: orchestration
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+        component: orchestration
+    spec:
+      containers:
+        - name: orchestrator
+          image: asia-south1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/orchestrator:v1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8001
+              name: http
+          env:
+            - name: STT_SERVICE_URL
+              value: "http://stt-service.voice-agent-phase4.svc.cluster.local:8000"
+            - name: TTS_SERVICE_URL
+              value: "http://tts-service.voice-agent-phase4.svc.cluster.local:8000"
+            - name: LLM_SERVICE_URL
+              value: "http://llm-service.voice-agent-phase4.svc.cluster.local:8000"
+            - name: REDPANDA_HOST
+              value: "redpanda.voice-agent-phase4.svc.cluster.local"
+            - name: REDPANDA_PORT
+              value: "9092"
+            - name: SCYLLADB_HOST
+              value: "scylladb.voice-agent-phase4.svc.cluster.local"
+            - name: SCYLLADB_PORT
+              value: "9042"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator
+  namespace: voice-agent-phase4
+  labels:
+    app: orchestrator
+    component: orchestration
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8001
+      targetPort: 8001
+      name: http
+  selector:
+    app: orchestrator
+    component: orchestration 

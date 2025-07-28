@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-service
+  namespace: voice-agent-phase5
+  labels:
+    app: llm-service
+    component: ai
+    phase: "5"
+    version: "5.0.0"
+spec:
+  type: ClusterIP
+  selector:
+    app: llm-service
+    component: ai
+  ports:
+    - protocol: TCP
+      port: 11434
+      targetPort: 11434
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-service
+  namespace: voice-agent-phase5
+  labels:
+    app: llm-service
+    component: ai
+    phase: "5"
+    version: "5.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-service
+      component: ai
+  template:
+    metadata:
+      labels:
+        app: llm-service
+        component: ai
+        phase: "5"
+        version: "5.0.0"
+    spec:
+      containers:
+        - name: llm-service
+          image: asia-south1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/llm-service:mock-v1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 11434
+              name: http
+          env:
+            - name: MOCK_LLM_ENABLED
+              value: "true"
+          # Optimized for mock service - minimal resources
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 11434
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 11434
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL 

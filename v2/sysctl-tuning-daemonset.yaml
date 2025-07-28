@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: sysctl-tuning
+  labels:
+    app: sysctl-tuning
+    component: performance-tuning
+spec:
+  selector:
+    matchLabels:
+      name: sysctl-tuning
+  template:
+    metadata:
+      labels:
+        name: sysctl-tuning
+        app: sysctl-tuning
+        component: performance-tuning
+    spec:
+      # Run on nodes with low-latency label
+      nodeSelector:
+        node-type: low-latency
+      # Tolerations for dedicated nodes
+      tolerations:
+      - key: dedicated
+        operator: Equal
+        value: voice-ai
+        effect: NoSchedule
+      initContainers:
+      - name: sysctl-init
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          # Network buffer tuning for low latency
+          sysctl -w net.core.rmem_max=4194304
+          sysctl -w net.core.wmem_max=4194304
+          sysctl -w net.core.rmem_default=262144
+          sysctl -w net.core.wmem_default=262144
+          
+          # TCP buffer tuning
+          sysctl -w net.ipv4.tcp_rmem="4096 87380 4194304"
+          sysctl -w net.ipv4.tcp_wmem="4096 65536 4194304"
+          sysctl -w net.ipv4.tcp_congestion_control=bbr
+          sysctl -w net.ipv4.tcp_low_latency=1
+          sysctl -w net.ipv4.tcp_tw_reuse=1
+          sysctl -w net.ipv4.tcp_fastopen=3
+          
+          # Network device tuning
+          sysctl -w net.core.netdev_max_backlog=250000
+          sysctl -w net.core.netdev_budget=600
+          sysctl -w net.core.netdev_budget_usecs=8000
+          
+          # Interrupt coalescing for network interfaces
+          for interface in $(ls /sys/class/net/); do
+            if [ -d "/sys/class/net/$interface/device" ]; then
+              # Set interrupt coalescing for physical interfaces
+              if [ -f "/sys/class/net/$interface/device/coalesce_rx_usecs" ]; then
+                echo 50 > "/sys/class/net/$interface/device/coalesce_rx_usecs" 2>/dev/null || true
+                echo 50 > "/sys/class/net/$interface/device/coalesce_tx_usecs" 2>/dev/null || true
+              fi
+              # Set ring buffer sizes
+              if [ -f "/sys/class/net/$interface/device/rx_ring_size" ]; then
+                echo 4096 > "/sys/class/net/$interface/device/rx_ring_size" 2>/dev/null || true
+                echo 4096 > "/sys/class/net/$interface/device/tx_ring_size" 2>/dev/null || true
+              fi
+            fi
+          done
+          
+          # CPU frequency governor for performance
+          echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor 2>/dev/null || true
+          
+          # Disable CPU power management for consistent performance
+          echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
+          
+          # Memory management tuning
+          sysctl -w vm.swappiness=1
+          sysctl -w vm.dirty_ratio=15
+          sysctl -w vm.dirty_background_ratio=5
+          
+          # File system tuning
+          sysctl -w fs.file-max=2097152
+          sysctl -w fs.inotify.max_user_watches=524288
+          
+          echo "System tuning completed successfully"
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      containers:
+      - name: sysctl-monitor
+        image: busybox:1.35
+        command: ["sleep", "infinity"]
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "50m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL 

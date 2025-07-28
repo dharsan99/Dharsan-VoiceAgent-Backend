@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        button { padding: 10px 20px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Debug Test</h1>
+    <button onclick="testWebSocket()">Test WebSocket Connection</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    <div id="logs"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            logsDiv.appendChild(logDiv);
+            console.log(message);
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        function testWebSocket() {
+            log('Starting WebSocket test...');
+            
+            const wsUrl = 'ws://34.47.230.178:8001/ws';
+            log(`Connecting to: ${wsUrl}`);
+            
+            const ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function(event) {
+                log('✅ WebSocket connection opened successfully', 'success');
+                
+                // Send session info
+                const sessionInfo = {
+                    type: 'session_info',
+                    session_id: 'test_session_' + Date.now(),
+                    version: 'phase2'
+                };
+                
+                log(`📤 Sending session info: ${JSON.stringify(sessionInfo)}`);
+                ws.send(JSON.stringify(sessionInfo));
+                
+                // Send a ping
+                setTimeout(() => {
+                    log('📡 Sending ping...');
+                    ws.send(JSON.stringify({ type: 'ping' }));
+                }, 1000);
+            };
+            
+            ws.onmessage = function(event) {
+                log(`📨 Received message: ${event.data}`, 'success');
+            };
+            
+            ws.onerror = function(error) {
+                log(`❌ WebSocket error: ${error}`, 'error');
+            };
+            
+            ws.onclose = function(event) {
+                log(`🔌 WebSocket closed: ${event.code} ${event.reason}`, 'error');
+            };
+            
+            // Close after 10 seconds
+            setTimeout(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    log('🔄 Closing WebSocket connection...');
+                    ws.close();
+                }
+            }, 10000);
+        }
+    </script>
+</body>
+</html> 

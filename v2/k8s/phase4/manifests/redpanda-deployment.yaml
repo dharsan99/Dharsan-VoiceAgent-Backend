@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voice-agent-phase4
+  labels:
+    name: voice-agent-phase4
+    phase: "4"
+    version: "4.0.0"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redpanda-data-pvc
+  namespace: voice-agent-phase4
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redpanda
+  namespace: voice-agent-phase4
+  labels:
+    app: redpanda
+    component: message-bus
+    phase: "4"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redpanda
+  template:
+    metadata:
+      labels:
+        app: redpanda
+        component: message-bus
+        phase: "4"
+    spec:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
+      containers:
+      - name: redpanda
+        image: docker.redpanda.com/redpandadata/redpanda:v23.1.2
+        ports:
+        - containerPort: 9092
+          name: kafka
+        - containerPort: 8081
+          name: admin
+        - containerPort: 8082
+          name: pandaproxy
+        - containerPort: 9644
+          name: metrics
+        env:
+        - name: REDPANDA_MODE
+          value: "dev-container"
+        - name: REDPANDA_NODE_ID
+          value: "0"
+        - name: REDPANDA_SEED_SERVERS
+          value: "[]"
+        - name: REDPANDA_KAFKA_ADDR
+          value: "0.0.0.0:9092"
+        - name: REDPANDA_ADMIN_ADDR
+          value: "0.0.0.0:8081"
+        - name: REDPANDA_RPC_ADDR
+          value: "0.0.0.0:33145"
+        - name: REDPANDA_BROKERS
+          value: "localhost:9092"
+        - name: REDPANDA_ENABLE_ADMIN_API
+          value: "true"
+        volumeMounts:
+        - name: redpanda-data
+          mountPath: /var/lib/redpanda/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /v1/status/ready
+            port: 9644
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /v1/status/ready
+            port: 9644
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: redpanda-data
+        persistentVolumeClaim:
+          claimName: redpanda-data-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda
+  namespace: voice-agent-phase4
+  labels:
+    app: redpanda
+    component: message-bus
+spec:
+  selector:
+    app: redpanda
+  ports:
+  - name: kafka
+    port: 9092
+    targetPort: 9092
+  - name: admin
+    port: 8081
+    targetPort: 8081
+  - name: pandaproxy
+    port: 8082
+    targetPort: 8082
+  - name: metrics
+    port: 9644
+    targetPort: 9644
+  type: ClusterIP 

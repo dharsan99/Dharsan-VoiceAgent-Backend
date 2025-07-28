@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WHIP Test</title>
+</head>
+<body>
+    <h1>WHIP Connection Test</h1>
+    <button id="startBtn">Start WHIP Connection</button>
+    <button id="stopBtn" disabled>Stop Connection</button>
+    <div id="status">Ready</div>
+    <div id="logs"></div>
+
+    <script>
+        let peerConnection = null;
+        let localStream = null;
+
+        function log(message) {
+            const logs = document.getElementById('logs');
+            logs.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            console.log(message);
+        }
+
+        async function startWhipConnection() {
+            try {
+                log('🎤 Requesting user media...');
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 48000
+                    }
+                });
+                log('✅ User media obtained: ' + localStream.getTracks().length + ' tracks');
+
+                // Create peer connection
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' }
+                    ]
+                });
+
+                // Add local tracks
+                log('🎵 Adding audio tracks to peer connection...');
+                localStream.getTracks().forEach(track => {
+                    log('🎵 Adding track: ' + track.kind + ' ' + track.id);
+                    peerConnection.addTrack(track, localStream);
+                });
+
+                // Set up event handlers
+                peerConnection.onicecandidate = (event) => {
+                    log('🧊 ICE candidate: ' + (event.candidate ? 'found' : 'null'));
+                };
+
+                peerConnection.oniceconnectionstatechange = () => {
+                    log('🔗 ICE connection state: ' + peerConnection.iceConnectionState);
+                };
+
+                peerConnection.onconnectionstatechange = () => {
+                    log('🔗 Connection state: ' + peerConnection.connectionState);
+                };
+
+                peerConnection.onsignalingstatechange = () => {
+                    log('📡 Signaling state: ' + peerConnection.signalingState);
+                };
+
+                peerConnection.ontrack = (event) => {
+                    log('🎵 Received remote track: ' + event.track.kind);
+                };
+
+                // Create SDP offer
+                log('📝 Creating SDP offer...');
+                const offer = await peerConnection.createOffer();
+                log('📝 SDP offer created, length: ' + offer.sdp.length);
+                
+                await peerConnection.setLocalDescription(offer);
+                log('✅ Local description set');
+
+                // Wait for ICE gathering to complete
+                log('⏳ Waiting for ICE gathering...');
+                await new Promise((resolve) => {
+                    const checkGatheringState = () => {
+                        log('🔍 ICE gathering state: ' + peerConnection.iceGatheringState);
+                        if (peerConnection.iceGatheringState === 'complete') {
+                            log('✅ ICE gathering complete');
+                            resolve();
+                        } else {
+                            setTimeout(checkGatheringState, 100);
+                        }
+                    };
+                    checkGatheringState();
+                });
+
+                // Send WHIP request
+                const whipUrl = 'http://localhost:8080/whip';
+                log('📡 Sending WHIP request to: ' + whipUrl);
+                log('📄 SDP offer length: ' + offer.sdp.length);
+
+                const response = await fetch(whipUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/sdp',
+                    },
+                    body: offer.sdp
+                });
+
+                log('📡 WHIP response status: ' + response.status);
+                log('📡 WHIP response headers: ' + Object.fromEntries(response.headers.entries()));
+
+                if (!response.ok) {
+                    throw new Error('WHIP request failed: ' + response.status + ' ' + response.statusText);
+                }
+
+                const answerSdp = await response.text();
+                log('📄 SDP answer length: ' + answerSdp.length);
+                log('📄 SDP answer preview: ' + answerSdp.substring(0, 100) + '...');
+
+                // Set remote description
+                log('🔧 Setting remote description...');
+                const answer = new RTCSessionDescription({ type: 'answer', sdp: answerSdp });
+                await peerConnection.setRemoteDescription(answer);
+                log('✅ Remote description set successfully');
+
+                log('🎉 WHIP connection established');
+                log('📊 Final connection state: ' + peerConnection.connectionState);
+                log('📊 Final ICE connection state: ' + peerConnection.iceConnectionState);
+                log('📊 Final signaling state: ' + peerConnection.signalingState);
+
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+
+                // Keep connection alive and monitor
+                setInterval(() => {
+                    if (peerConnection) {
+                        log('📊 Connection state: ' + peerConnection.connectionState + 
+                            ', ICE: ' + peerConnection.iceConnectionState + 
+                            ', Signaling: ' + peerConnection.signalingState);
+                    }
+                }, 5000);
+
+            } catch (error) {
+                log('❌ Error: ' + error.message);
+                document.getElementById('status').textContent = 'Error: ' + error.message;
+            }
+        }
+
+        function stopConnection() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            document.getElementById('status').textContent = 'Disconnected';
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            log('🔌 Connection stopped');
+        }
+
+        document.getElementById('startBtn').onclick = startWhipConnection;
+        document.getElementById('stopBtn').onclick = stopConnection;
+    </script>
+</body>
+</html> 

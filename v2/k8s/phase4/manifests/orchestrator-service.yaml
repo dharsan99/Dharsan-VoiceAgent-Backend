@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator-lb
+  namespace: voice-agent-phase4
+  labels:
+    app: orchestrator
+    component: ai
+    phase: "4"
+spec:
+  type: LoadBalancer
+  selector:
+    app: orchestrator
+    component: orchestration
+  ports:
+  - name: websocket
+    port: 8001
+    targetPort: 8001
+    protocol: TCP 

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WHIP Connection Test - Fixed</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>WHIP Connection Test - Fixed</h1>
+    <button onclick="testWHIP()">Test WHIP Connection</button>
+    <div id="logs"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log ${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(logEntry);
+            console.log(message);
+        }
+
+        async function testWHIP() {
+            try {
+                log('Starting WHIP connection test...', 'info');
+                
+                // Generate session ID
+                const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                log(`Generated session ID: ${sessionId}`, 'info');
+
+                // Request user media
+                log('Requesting user media...', 'info');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 48000
+                    }
+                });
+                log('✅ User media granted', 'success');
+
+                // Create peer connection
+                log('Creating RTCPeerConnection...', 'info');
+                const peerConnection = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                                                       { 
+                                   urls: 'turn:global.relay.metered.ca:80',
+                                   username: '10f1dfa42670d72b3a31482a',
+                                   credential: 'FvFd4gNrt9+OZk4r'
+                               },
+                               { 
+                                   urls: 'turn:global.relay.metered.ca:443',
+                                   username: '10f1dfa42670d72b3a31482a',
+                                   credential: 'FvFd4gNrt9+OZk4r'
+                               }
+                    ]
+                });
+
+                // Add local tracks
+                stream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, stream);
+                    log(`Added track: ${track.kind}`, 'info');
+                });
+
+                // Create SDP offer
+                log('Creating SDP offer...', 'info');
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                log('✅ SDP offer created', 'success');
+
+                // Wait for ICE gathering
+                log('Waiting for ICE gathering...', 'info');
+                await new Promise((resolve) => {
+                    const checkGatheringState = () => {
+                        if (peerConnection.iceGatheringState === 'complete') {
+                            resolve();
+                        } else {
+                            setTimeout(checkGatheringState, 100);
+                        }
+                    };
+                    checkGatheringState();
+                });
+
+                // Get final SDP
+                const finalOffer = peerConnection.localDescription;
+                log(`Final SDP length: ${finalOffer.sdp.length}`, 'info');
+
+                // Send WHIP request with session ID header
+                const whipUrl = 'http://35.200.237.68:8001/whip';
+                log(`Sending WHIP request to: ${whipUrl}`, 'info');
+                log(`With session ID header: ${sessionId}`, 'info');
+
+                const response = await fetch(whipUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/sdp',
+                        'X-Session-ID': sessionId,
+                    },
+                    body: finalOffer.sdp
+                });
+
+                log(`WHIP response status: ${response.status} ${response.statusText}`, 'info');
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`❌ WHIP request failed: ${errorText}`, 'error');
+                    return;
+                }
+
+                const answerSdp = await response.text();
+                log(`✅ WHIP response received, length: ${answerSdp.length}`, 'success');
+
+                // Set remote description
+                const answer = new RTCSessionDescription({ type: 'answer', sdp: answerSdp });
+                await peerConnection.setRemoteDescription(answer);
+                log('✅ Remote description set', 'success');
+
+                // Monitor connection state
+                peerConnection.onconnectionstatechange = () => {
+                    log(`Connection state: ${peerConnection.connectionState}`, 'info');
+                };
+
+                peerConnection.oniceconnectionstatechange = () => {
+                    log(`ICE connection state: ${peerConnection.iceConnectionState}`, 'info');
+                };
+
+                log('🎉 WHIP connection test completed successfully!', 'success');
+                log('The Media Server should now be receiving audio with the session ID', 'success');
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        }
+    </script>
+</body>
+</html> 

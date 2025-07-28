@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy mock LLM service (no requirements needed - uses standard library)
+COPY mock_llm_simple.py .
+
+# Create non-root user
+RUN useradd -m -u 1001 appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+# Expose port
+EXPOSE 11434
+
+# Start the mock LLM service
+CMD ["python", "mock_llm_simple.py"] 

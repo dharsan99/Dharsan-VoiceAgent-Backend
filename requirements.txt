@@ -4,10 +4,18 @@ fastapi>=0.104.0
 uvicorn>=0.24.0
 websockets>=12.0
 
+# WebRTC Support
+aiortc>=1.5.0
+aioice>=0.9.0
+pyee>=11.0.0
+
 # AI Service SDKs
-deepgram-sdk>=2.12.0
+deepgram-sdk>=3.0.0
 groq>=0.4.0
-elevenlabs>=0.2.0
+elevenlabs>=0.2.27
+
+# Cloud Storage and Processing
+modal>=0.60.0
 
 # Utilities
 python-dotenv>=1.0.0

@@ -1,0 +1,276 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voice-agent-phase3
+  labels:
+    name: voice-agent-phase3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scylladb
+  namespace: voice-agent-phase3
+  labels:
+    app: scylladb
+    component: database
+spec:
+  clusterIP: None
+  ports:
+    - port: 9042
+      name: cql
+      targetPort: 9042
+    - port: 7000
+      name: internode
+      targetPort: 7000
+    - port: 7001
+      name: tls-internode
+      targetPort: 7001
+    - port: 9160
+      name: thrift
+      targetPort: 9160
+  selector:
+    app: scylladb
+    component: database
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: scylladb
+  namespace: voice-agent-phase3
+  labels:
+    app: scylladb
+    component: database
+spec:
+  serviceName: scylladb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scylladb
+      component: database
+  template:
+    metadata:
+      labels:
+        app: scylladb
+        component: database
+    spec:
+      containers:
+        - name: scylladb
+          image: scylladb/scylla:5.2
+          args:
+            - "--smp 1"
+            - "--memory 2G"
+            - "--developer-mode 1"
+            - "--listen-address 0.0.0.0"
+            - "--broadcast-address $(POD_IP)"
+            - "--broadcast-rpc-address $(POD_IP)"
+            - "--rpc-address 0.0.0.0"
+            - "--seeds scylladb-0.scylladb.voice-agent-phase3.svc.cluster.local"
+            - "--cluster-name voice-ai-cluster"
+            - "--data-directory /var/lib/scylla"
+            - "--commitlog-directory /var/lib/scylla/commitlog"
+            - "--hints-directory /var/lib/scylla/hints"
+            - "--view-hints-directory /var/lib/scylla/view_hints"
+            - "--coredump-dir /var/lib/scylla"
+            - "--housekeeping-interval 1"
+            - "--log-to-syslog 0"
+            - "--log-to-stdout 1"
+            - "--default-log-level info"
+            - "--logger-log-level scylla=info"
+            - "--logger-log-level system=info"
+            - "--logger-log-level database=info"
+          ports:
+            - containerPort: 9042
+              name: cql
+            - containerPort: 7000
+              name: internode
+            - containerPort: 7001
+              name: tls-internode
+            - containerPort: 9160
+              name: thrift
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: scylladb-data
+              mountPath: /var/lib/scylla
+            - name: scylladb-config
+              mountPath: /etc/scylla
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1000m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "cqlsh -e 'SELECT release_version FROM system.local'"
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "cqlsh -e 'SELECT release_version FROM system.local'"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: scylladb-config
+          configMap:
+            name: scylladb-config
+  volumeClaimTemplates:
+    - metadata:
+        name: scylladb-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+        storageClassName: standard
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scylladb-config
+  namespace: voice-agent-phase3
+data:
+  scylla.yaml: |
+    cluster_name: voice-ai-cluster
+    listen_address: 0.0.0.0
+    rpc_address: 0.0.0.0
+    broadcast_address: ${POD_IP}
+    broadcast_rpc_address: ${POD_IP}
+    seeds: scylladb-0.scylladb.voice-agent-phase3.svc.cluster.local
+    data_file_directories:
+      - /var/lib/scylla
+    commitlog_directory: /var/lib/scylla/commitlog
+    hints_directory: /var/lib/scylla/hints
+    view_hints_directory: /var/lib/scylla/view_hints
+    saved_caches_directory: /var/lib/scylla/saved_caches
+    developer_mode: true
+    endpoint_snitch: SimpleSnitch
+    authenticator: AllowAllAuthenticator
+    authorizer: AllowAllAuthorizer
+    permissions_validity_in_ms: 2000
+    permissions_update_interval_in_ms: 1000
+    server_encryption_options:
+      internode_encryption: none
+    client_encryption_options:
+      enabled: false
+    request_scheduler: org.apache.cassandra.scheduler.NoScheduler
+    server_error_injections_at_startup: []
+    cross_node_timeout: false
+    internode_compression: all
+    inter_dc_tcp_nodelay: false
+    tcp_nodelay: false
+    tcp_keepalive: true
+    memtable_allocation_type: heap_buffers
+    storage_port: 7000
+    ssl_storage_port: 7001
+    native_transport_port: 9042
+    start_native_transport: true
+    native_transport_max_threads: 128
+    native_transport_max_frame_size_in_mb: 256
+    native_transport_max_concurrent_connections: -1
+    native_transport_max_concurrent_connections_per_ip: -1
+    rpc_port: 9160
+    start_rpc: true
+    rpc_keepalive: true
+    rpc_server_type: sync
+    thrift_framed_transport_size_in_mb: 15
+    thrift_max_message_length_in_mb: 16
+    incremental_backups: false
+    snapshot_before_compaction: false
+    auto_snapshot: true
+    tombstone_warn_threshold: 1000
+    tombstone_failure_threshold: 100000
+    column_index_size_in_kb: 64
+    batch_size_warn_threshold_in_kb: 5
+    batch_size_fail_threshold_in_kb: 50
+    compaction_throughput_mb_per_sec: 16
+    compaction_large_partition_warning_threshold_mb: 100
+    sstable_preemptive_open_interval_in_mb: 50
+    read_request_timeout_in_ms: 5000
+    range_request_timeout_in_ms: 10000
+    write_request_timeout_in_ms: 2000
+    counter_write_request_timeout_in_ms: 5000
+    cas_contention_timeout_in_ms: 1000
+    truncate_request_timeout_in_ms: 60000
+    request_timeout_in_ms: 10000
+    cross_node_timeout: false
+    dynamic_snitch_update_interval_in_ms: 100
+    dynamic_snitch_reset_interval_in_ms: 600000
+    dynamic_snitch_badness_threshold: 0.1
+    request_scheduler: org.apache.cassandra.scheduler.NoScheduler
+    server_error_injections_at_startup: []
+    internode_compression: all
+    inter_dc_tcp_nodelay: false
+    tcp_nodelay: false
+    tcp_keepalive: true
+    memtable_allocation_type: heap_buffers
+    index_summary_resize_interval_in_minutes: 60
+    concurrent_reads: 32
+    concurrent_writes: 32
+    concurrent_counter_writes: 32
+    concurrent_materialized_view_writes: 32
+    memtable_total_space_in_mb: 2048
+    memtable_cleanup_threshold: 0.11
+    memtable_flush_writers: 1
+    commitlog_sync: periodic
+    commitlog_sync_period_in_ms: 10000
+    commitlog_segment_size_in_mb: 32
+    commitlog_total_space_in_mb: 8192
+    commitlog_reuse_segments: true
+    commitlog_use_o_dsync: false
+    compaction_large_partition_warning_threshold_mb: 100
+    sstable_preemptive_open_interval_in_mb: 50
+    read_request_timeout_in_ms: 5000
+    range_request_timeout_in_ms: 10000
+    write_request_timeout_in_ms: 2000
+    counter_write_request_timeout_in_ms: 5000
+    cas_contention_timeout_in_ms: 1000
+    truncate_request_timeout_in_ms: 60000
+    request_timeout_in_ms: 10000
+    cross_node_timeout: false
+    dynamic_snitch_update_interval_in_ms: 100
+    dynamic_snitch_reset_interval_in_ms: 600000
+    dynamic_snitch_badness_threshold: 0.1
+    request_scheduler: org.apache.cassandra.scheduler.NoScheduler
+    server_error_injections_at_startup: []
+    internode_compression: all
+    inter_dc_tcp_nodelay: false
+    tcp_nodelay: false
+    tcp_keepalive: true
+    memtable_allocation_type: heap_buffers
+    index_summary_resize_interval_in_minutes: 60
+    concurrent_reads: 32
+    concurrent_writes: 32
+    concurrent_counter_writes: 32
+    concurrent_materialized_view_writes: 32
+    memtable_total_space_in_mb: 2048
+    memtable_cleanup_threshold: 0.11
+    memtable_flush_writers: 1
+    commitlog_sync: periodic
+    commitlog_sync_period_in_ms: 10000
+    commitlog_segment_size_in_mb: 32
+    commitlog_total_space_in_mb: 8192
+    commitlog_reuse_segments: true
+    commitlog_use_o_dsync: false 

@@ -1,0 +1,42 @@
+version: '3.8'
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.1.2
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+    ports:
+      - "8081:8081" # Admin
+      - "8082:8082" # Pandaproxy
+      - "9092:9092" # Kafka API
+      - "9644:9644" # Prometheus Metrics
+    environment:
+      - REDPANDA_ENABLE_USAGE_STATS=false
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+      - ./scripts/create-topics.sh:/create-topics.sh:ro
+
+  # Topic creation service
+  topic-creator:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.1.2
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    command: ["sh", "-c", "sleep 10 && /create-topics.sh"]
+    volumes:
+      - ./scripts/create-topics.sh:/create-topics.sh:ro
+
+volumes:
+  redpanda-data: 

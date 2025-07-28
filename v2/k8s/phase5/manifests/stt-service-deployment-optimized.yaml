@@ -1,0 +1,165 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stt-service
+  namespace: voice-agent-phase5
+  labels:
+    app: stt-service
+    component: ai
+    phase: "5"
+    version: "5.0.1"
+spec:
+  type: ClusterIP
+  selector:
+    app: stt-service
+    component: ai
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+      name: http
+---
+# Persistent Volume Claim for model storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: stt-model-storage-pvc
+  namespace: voice-agent-phase5
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi  # Optimized for tiny model
+  storageClassName: standard-rwo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stt-service
+  namespace: voice-agent-phase5
+  labels:
+    app: stt-service
+    component: ai
+    phase: "5"
+    version: "5.0.1"
+spec:
+  replicas: 2  # Keep 2 replicas for availability
+  selector:
+    matchLabels:
+      app: stt-service
+      component: ai
+  template:
+    metadata:
+      labels:
+        app: stt-service
+        component: ai
+        phase: "5"
+        version: "5.0.1"
+    spec:
+      containers:
+        - name: stt-service
+          image: asia-south1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/stt-service:v1.0.16-amd64
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: STT_MODEL
+              value: "tiny"  # Using tiny model for better performance
+            - name: STT_DEVICE
+              value: "cpu"
+            - name: TRANSFORMERS_CACHE
+              value: "/models"
+            - name: OMP_NUM_THREADS
+              value: "2"
+            - name: MKL_NUM_THREADS
+              value: "2"
+          # OPTIMIZED RESOURCES - Based on actual usage analysis
+          resources:
+            requests:
+              cpu: "250m"        # Reduced from 2 cores to 250m (actual usage: 3m)
+              memory: "512Mi"    # Reduced from 2Gi to 512Mi (actual usage: ~390Mi)
+              ephemeral-storage: "1Gi"
+            limits:
+              cpu: "1"           # Reduced from 2 cores to 1 core
+              memory: "1Gi"      # Reduced from 2Gi to 1Gi
+              ephemeral-storage: "2Gi"
+          # THREE-STAGE HEALTH PROBE SYSTEM
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            failureThreshold: 30
+            periodSeconds: 10
+            initialDelaySeconds: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 30
+            failureThreshold: 3
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: model-storage
+              mountPath: /models
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: stt-model-storage-pvc
+---
+# Optimized HPA for STT Service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: stt-service-hpa
+  namespace: voice-agent-phase5
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stt-service
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30 

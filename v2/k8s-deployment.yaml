@@ -1,0 +1,146 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: voice-ai-backend-v2
+  labels:
+    app: voice-ai-backend-v2
+    version: "2.0.0"
+    component: webrtc-backend
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: voice-ai-backend-v2
+  template:
+    metadata:
+      labels:
+        app: voice-ai-backend-v2
+        version: "2.0.0"
+        component: webrtc-backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Use Guaranteed QoS class for consistent performance
+      containers:
+      - name: webrtc-backend
+        image: gcr.io/speechtotext-466820/voice-ai-backend-v2:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        - name: websocket
+          containerPort: 8000
+          protocol: TCP
+        # Resource requests and limits must be equal for Guaranteed QoS
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: WEBRTC_ICE_SERVERS
+          value: '{"iceServers":[{"urls":"stun:stun.l.google.com:19302"}]}'
+        - name: MAX_SESSIONS_PER_POD
+          value: "100"
+        - name: SESSION_TIMEOUT
+          value: "300"
+        - name: REDIS_URL
+          value: "redis://redis.redis.svc.cluster.local:6379"
+        - name: REDIS_SENTINEL_URL
+          value: "redis+sentinel://redis-sentinel.redis.svc.cluster.local:26379"
+        # Environment variables for AI services (should be set via secrets)
+        - name: DEEPGRAM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: voice-ai-secrets
+              key: deepgram-api-key
+        - name: GROQ_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: voice-ai-secrets
+              key: groq-api-key
+        - name: ELEVENLABS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: voice-ai-secrets
+              key: elevenlabs-api-key
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        # Volume mounts for logs and temporary files
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+        - name: temp
+          mountPath: /tmp
+      # Volumes
+      volumes:
+      - name: logs
+        emptyDir: {}
+      - name: temp
+        emptyDir: {}
+      # Node affinity for low-latency nodes
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - low-latency
+                - performance
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - voice-ai-backend-v2
+              topologyKey: kubernetes.io/hostname
+      # Tolerations for dedicated nodes
+      tolerations:
+      - key: dedicated
+        operator: Equal
+        value: voice-ai
+        effect: NoSchedule 

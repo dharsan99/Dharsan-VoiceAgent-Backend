@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WHIP Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        #log { background: #f8f9fa; padding: 10px; border-radius: 5px; height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>WHIP Connection Test</h1>
+    <div id="status" class="status info">Testing WHIP connection...</div>
+    <button onclick="testWHIPConnection()">Test WHIP Connection</button>
+    <button onclick="clearLog()">Clear Log</button>
+    <div id="log"></div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        async function testWHIPConnection() {
+            clearLog();
+            updateStatus('Testing WHIP connection...', 'info');
+            
+            try {
+                // Step 1: Get user media
+                log('🎤 Requesting microphone access...');
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 48000
+                    }
+                });
+                log('✅ Microphone access granted');
+
+                // Step 2: Create RTCPeerConnection
+                log('🔗 Creating RTCPeerConnection...');
+                const peerConnection = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                });
+
+                // Step 3: Add audio track
+                log('🎵 Adding audio track to peer connection...');
+                stream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, stream);
+                });
+
+                // Step 4: Create offer
+                log('📝 Creating SDP offer...');
+                const offer = await peerConnection.createOffer();
+                if (!offer.sdp) {
+                    throw new Error('Failed to create SDP offer');
+                }
+                log('✅ SDP offer created');
+
+                // Step 5: Set local description
+                log('🔧 Setting local description...');
+                await peerConnection.setLocalDescription(offer);
+                log('✅ Local description set');
+
+                // Step 6: Wait for ICE gathering
+                log('⏳ Waiting for ICE gathering to complete...');
+                await new Promise<void>((resolve) => {
+                    const checkGatheringState = () => {
+                        log(`ICE gathering state: ${peerConnection.iceGatheringState}`);
+                        if (peerConnection.iceGatheringState === 'complete') {
+                            resolve();
+                        } else {
+                            setTimeout(checkGatheringState, 100);
+                        }
+                    };
+                    checkGatheringState();
+                });
+                log('✅ ICE gathering completed');
+
+                // Step 7: Get final offer
+                const finalOffer = peerConnection.localDescription;
+                if (!finalOffer || !finalOffer.sdp) {
+                    throw new Error('No local description available after ICE gathering');
+                }
+                log(`📄 Final SDP offer length: ${finalOffer.sdp.length}`);
+
+                // Step 8: Send WHIP request
+                const whipUrl = 'http://35.200.237.68:8001/whip';
+                log(`🌐 Sending WHIP request to: ${whipUrl}`);
+                
+                const response = await fetch(whipUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/sdp',
+                    },
+                    body: finalOffer.sdp
+                });
+
+                log(`📡 WHIP response status: ${response.status} ${response.statusText}`);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`❌ WHIP request failed: ${errorText}`);
+                    updateStatus('WHIP request failed!', 'error');
+                    return;
+                }
+
+                const answerSdp = await response.text();
+                log(`✅ WHIP SDP answer received, length: ${answerSdp.length}`);
+
+                // Step 9: Set remote description
+                log('🔧 Setting remote description...');
+                const answer = new RTCSessionDescription({ type: 'answer', sdp: answerSdp });
+                await peerConnection.setRemoteDescription(answer);
+                log('✅ Remote description set');
+
+                // Step 10: Monitor connection state
+                peerConnection.oniceconnectionstatechange = () => {
+                    log(`🔗 ICE connection state: ${peerConnection.iceConnectionState}`);
+                    if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+                        log('🎉 WHIP connection established successfully!');
+                        updateStatus('WHIP connection successful!', 'success');
+                    } else if (peerConnection.iceConnectionState === 'failed') {
+                        log('❌ ICE connection failed');
+                        updateStatus('ICE connection failed!', 'error');
+                    }
+                };
+
+                // Step 11: Monitor connection state
+                peerConnection.onconnectionstatechange = () => {
+                    log(`🔗 Connection state: ${peerConnection.connectionState}`);
+                };
+
+                // Step 12: Monitor signaling state
+                peerConnection.onsignalingstatechange = () => {
+                    log(`📡 Signaling state: ${peerConnection.signalingState}`);
+                };
+
+                // Test timeout
+                setTimeout(() => {
+                    if (peerConnection.iceConnectionState !== 'connected' && peerConnection.iceConnectionState !== 'completed') {
+                        log('⏰ WHIP connection timeout after 30 seconds');
+                        updateStatus('WHIP connection timeout!', 'error');
+                    }
+                }, 30000);
+
+            } catch (error) {
+                log(`❌ WHIP connection failed: ${error.message}`);
+                updateStatus('WHIP connection failed!', 'error');
+            }
+        }
+
+        // Auto-test on page load
+        window.onload = () => {
+            log('🚀 Page loaded, starting WHIP test...');
+            testWHIPConnection();
+        };
+    </script>
+</body>
+</html> 

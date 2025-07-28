@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stt-service
+  namespace: voice-agent-phase4
+  labels:
+    app: stt-service
+    component: ai
+spec:
+  selector:
+    app: stt-service
+    component: ai
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stt-service
+  namespace: voice-agent-phase4
+  labels:
+    app: stt-service
+    component: ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stt-service
+      component: ai
+  template:
+    metadata:
+      labels:
+        app: stt-service
+        component: ai
+    spec:
+      containers:
+        - name: stt-service
+          image: asia-south1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/stt-service:v1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stt-service-config
+  namespace: voice-agent-phase4
+data:
+  default-language: "en"
+  default-threads: "4"
+  default-temperature: "0.0"
+  model-path: "/app/ggml-base.en.bin"
+  max-audio-duration: "30" 

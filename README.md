@@ -1,514 +1,548 @@
-# Dharsan-VoiceAgent-Backend
+# Voice Agent Backend System
 
-A high-performance, serverless voice AI backend built with Python, FastAPI, and Modal. This project orchestrates real-time audio processing through a sophisticated pipeline of AI services, demonstrating advanced asynchronous programming patterns and ultra-low latency communication.
+A comprehensive backend system for real-time voice AI conversations with multiple deployment architectures, from simple API-based systems to complex Kubernetes microservices with WebRTC, gRPC, and event-driven pipelines.
 
-## 🚀 Features
+## Live Demo
+**Live Application**: [https://dharsan-voice-agent-frontend.vercel.app/](https://dharsan-voice-agent-frontend.vercel.app/)
 
-- **Real-time Audio Processing**: WebSocket-based streaming with sub-300ms latency
-- **Asynchronous AI Pipeline**: Concurrent STT, LLM, and TTS processing
-- **Serverless Architecture**: Deployed on Modal for automatic scaling
-- **Advanced Conversation Management**: Interruption handling and context memory
-- **Production Ready**: Secure secrets management and error handling
-- **High Performance**: Optimized for real-time voice interactions
+## Repository Links
+- **Frontend Repository**: [https://github.com/dharsan99/Dharsan-VoiceAgent-Frontend](https://github.com/dharsan99/Dharsan-VoiceAgent-Frontend)
+- **Backend Repository**: [https://github.com/dharsan99/Dharsan-VoiceAgent-Backend](https://github.com/dharsan99/Dharsan-VoiceAgent-Backend)
 
-## 🏗️ Architecture
+## Table of Contents
 
-### Technology Stack
-- **Framework**: FastAPI with WebSocket support
-- **Platform**: Modal (serverless Python)
-- **AI Services**: 
-  - Deepgram Nova-3 (Speech-to-Text)
-  - Groq Llama 3 (Large Language Model)
-  - ElevenLabs (Text-to-Speech)
-- **Communication**: WebSocket for real-time bidirectional streaming
-- **Async Processing**: asyncio with producer-consumer queues
+- [Overview](#overview)
+- [System Architecture](#system-architecture)
+- [Version History](#version-history)
+- [Quick Start](#quick-start)
+- [Development Setup](#development-setup)
+- [Deployment](#deployment)
+- [Testing](#testing)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
 
-### System Architecture
+## Overview
 
+The Voice Agent Backend is a sophisticated system that provides real-time voice conversation capabilities with AI services. It supports multiple deployment architectures, from simple API-based systems to complex Kubernetes microservices with WebRTC, gRPC, and event-driven pipelines.
+
+### Key Capabilities
+- **Real-time Voice Processing**: Live audio capture, streaming, and playback
+- **Multiple AI Integrations**: Support for various STT, LLM, and TTS services
+- **WebRTC & gRPC**: High-performance communication protocols
+- **Event-Driven Architecture**: Scalable, responsive conversation flow
+- **Production Ready**: Kubernetes deployment with monitoring and auto-scaling
+- **Multi-Phase Evolution**: Progressive enhancement from simple to complex architectures
+
+## System Architecture
+
+### High-Level Architecture
 ```
-Client ←→ WebSocket ←→ FastAPI Server ←→ AI Pipeline
-                    ↓
-              asyncio.Queue System
-                    ↓
-        STT → LLM → TTS → Audio Output
-```
-
-### Core Components
-
-```
-├── main.py                    # Modal app and FastAPI server
-├── requirements.txt           # Python dependencies
-├── config/
-│   └── settings.py           # Configuration management
-├── services/
-│   ├── stt_service.py        # Deepgram STT integration
-│   ├── llm_service.py        # Groq LLM integration
-│   └── tts_service.py        # ElevenLabs TTS integration
-├── utils/
-│   ├── audio_processor.py    # Audio format handling
-│   └── conversation.py       # Conversation memory
-└── tests/
-    └── test_pipeline.py      # Pipeline testing
-```
-
-## 📋 Prerequisites
-
-- Python 3.9+
-- Modal CLI installed and authenticated
-- API keys for:
-  - Deepgram (Nova-3)
-  - Groq (Llama 3)
-  - ElevenLabs
-
-## 🛠️ Installation & Setup
-
-### 1. Install Modal CLI
-
-```bash
-pip install modal
-modal token new
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │   Media Server  │    │   Orchestrator  │
+│   (React)       │◄──►│   (Go)          │◄──►│   (Go)          │
+│   Port: 80      │    │   Port: 8080    │    │   Port: 8001    │
+│   Nginx         │    │   WHIP Protocol │    │   AI Pipeline   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Ingress       │    │   Redpanda      │    │   Prometheus    │
+│   Controller    │    │   (Kafka)       │    │   Monitoring    │
+│   SSL/TLS       │    │   Message Bus   │    │   Metrics       │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### 2. Clone and Setup Project
+### Pipeline Flow
+1. **Audio Capture**: Browser microphone → WebRTC/WebSocket
+2. **Real-time Processing**: Audio streaming to backend services
+3. **AI Pipeline**: STT → LLM → TTS processing
+4. **Response Delivery**: Audio streaming back to frontend
+5. **Playback**: Real-time audio output with visualization
 
-```bash
-cd Dharsan-VoiceAgent-Backend
-pip install -r requirements.txt
+## Version History
+
+### V1 - Initial Test Version
+**Status**: Complete | **Focus**: API Integration & Basic Functionality
+
+**Features**:
+- Direct API integration with external services
+- **STT**: Deepgram for speech-to-text
+- **LLM**: Groq for language processing
+- **TTS**: ElevenLabs for text-to-speech
+- **Backup**: Azure Speech Services
+- Simple WebSocket communication
+- Basic audio visualization
+- **Metrics System**: Comprehensive conversation tracking and analytics
+
+**Architecture**:
+```
+Frontend → WebSocket → Backend → External APIs (Deepgram/Groq/ElevenLabs/Azure)
 ```
 
-### 3. Configure Secrets
-
-Create secrets in Modal dashboard or via CLI:
-
-```bash
-modal secret create voice-ai-secrets \
-  DEEPGRAM_API_KEY=your_deepgram_key \
-  GROQ_API_KEY=your_groq_key \
-  ELEVENLABS_API_KEY=your_elevenlabs_key
-```
-
-### 4. Environment Variables
-
-Create `.env` file for local development:
-
-```env
-DEEPGRAM_API_KEY=your_deepgram_key
-GROQ_API_KEY=your_groq_key
-ELEVENLABS_API_KEY=your_elevenlabs_key
-```
-
-## 🎯 Core Implementation Details
-
-### Modal App Configuration
-
-```python
-import modal
-
-# Define container image with all dependencies
-image = modal.Image.debian_slim().pip_install([
-    "fastapi",
-    "websockets",
-    "deepgram-sdk",
-    "groq",
-    "elevenlabs",
-    "python-multipart"
-])
-
-# Create Modal app
-app = modal.App("voice-ai-backend")
-
-# WebSocket endpoint
-@app.asgi_app(image=image, secrets=[modal.Secret.from_name("voice-ai-secrets")])
-def fastapi_app():
-    from fastapi import FastAPI, WebSocket
-    from fastapi.middleware.cors import CORSMiddleware
-    
-    app = FastAPI(title="Voice AI Backend")
-    
-    # CORS configuration
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    
-    return app
-```
-
-### Asynchronous Pipeline Architecture
-
-The core innovation is the queue-based producer-consumer pattern:
-
-```python
-import asyncio
-from typing import Dict, Any
-
-class VoiceAIPipeline:
-    def __init__(self):
-        self.stt_to_llm_queue = asyncio.Queue()
-        self.llm_to_tts_queue = asyncio.Queue()
-        self.tts_to_client_queue = asyncio.Queue()
-        self.conversation_memory = []
-        self.is_ai_speaking = False
-
-    async def handle_websocket(self, websocket: WebSocket):
-        await websocket.accept()
-        
-        # Launch concurrent pipeline tasks
-        tasks = [
-            self.audio_receiver_task(websocket),
-            self.stt_processor_task(),
-            self.llm_processor_task(),
-            self.tts_processor_task(),
-            self.audio_sender_task(websocket)
-        ]
-        
-        await asyncio.gather(*tasks)
-```
-
-### Speech-to-Text Integration (Deepgram)
-
-```python
-import asyncio
-from deepgram import DeepgramClient, LiveTranscriptionEvents
-
-class STTService:
-    def __init__(self, api_key: str):
-        self.deepgram = DeepgramClient(api_key)
-    
-    async def process_audio_stream(self, audio_queue: asyncio.Queue, 
-                                 transcript_queue: asyncio.Queue):
-        connection = self.deepgram.listen.live({
-            "model": "nova-3",
-            "language": "en-US",
-            "interim_results": True,
-            "endpointing": 200
-        })
-        
-        async def on_message(self, result, **kwargs):
-            if result.is_final:
-                await transcript_queue.put(result.channel.alternatives[0].transcript)
-        
-        connection.on(LiveTranscriptionEvents.Transcript, on_message)
-        
-        # Stream audio from queue to Deepgram
-        while True:
-            audio_chunk = await audio_queue.get()
-            connection.send(audio_chunk)
-```
-
-### Large Language Model Integration (Groq)
-
-```python
-import groq
-from typing import List
-
-class LLMService:
-    def __init__(self, api_key: str):
-        self.client = groq.Groq(api_key=api_key)
-    
-    async def generate_response(self, user_input: str, 
-                              conversation_history: List[str]) -> str:
-        # Build context-aware prompt
-        context = self._build_context(conversation_history)
-        prompt = f"{context}\nUser: {user_input}\nAssistant:"
-        
-        # Stream response from Groq
-        response = self.client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[{"role": "user", "content": prompt}],
-            stream=True,
-            temperature=0.7,
-            max_tokens=150
-        )
-        
-        full_response = ""
-        for chunk in response:
-            if chunk.choices[0].delta.content:
-                content = chunk.choices[0].delta.content
-                full_response += content
-                yield content
-        
-        return full_response
-```
-
-### Text-to-Speech Integration (ElevenLabs)
-
-```python
-import elevenlabs
-from elevenlabs import generate, stream
-
-class TTSService:
-    def __init__(self, api_key: str):
-        elevenlabs.set_api_key(api_key)
-    
-    async def synthesize_speech(self, text: str, 
-                               audio_queue: asyncio.Queue):
-        # Stream audio from ElevenLabs
-        audio_stream = generate(
-            text=text,
-            voice="Josh",  # Customizable voice
-            model="eleven_monolingual_v1",
-            stream=True
-        )
-        
-        for chunk in audio_stream:
-            await audio_queue.put(chunk)
-```
-
-### Conversation Memory Management
-
-```python
-class ConversationManager:
-    def __init__(self, max_history: int = 10):
-        self.history = []
-        self.max_history = max_history
-    
-    def add_exchange(self, user_input: str, ai_response: str):
-        self.history.append({
-            "user": user_input,
-            "assistant": ai_response,
-            "timestamp": datetime.utcnow()
-        })
-        
-        # Maintain history size
-        if len(self.history) > self.max_history:
-            self.history.pop(0)
-    
-    def get_context_summary(self) -> str:
-        if not self.history:
-            return ""
-        
-        # Create context from recent exchanges
-        recent_exchanges = self.history[-3:]  # Last 3 exchanges
-        context = "\n".join([
-            f"User: {ex['user']}\nAssistant: {ex['assistant']}"
-            for ex in recent_exchanges
-        ])
-        
-        return f"Previous conversation:\n{context}\n"
-```
-
-## 🚀 Deployment
-
-### Deploy to Modal
-
-```bash
-# Deploy the application
-modal deploy main.py
-
-# The output will include your WebSocket URL:
-# wss://your-app-name.modal.run
-```
-
-### Environment Configuration
-
-| Secret Name | Description | Required |
-|-------------|-------------|----------|
-| `DEEPGRAM_API_KEY` | Deepgram Nova-3 API key | Yes |
-| `GROQ_API_KEY` | Groq API key for Llama 3 | Yes |
-| `ELEVENLABS_API_KEY` | ElevenLabs API key | Yes |
-
-### Monitoring and Logs
-
-```bash
-# View application logs
-modal logs voice-ai-backend
-
-# Monitor function executions
-modal app list
-```
-
-## 🧪 Testing
-
-### Unit Tests
-
-```bash
-python -m pytest tests/
-```
-
-### Integration Tests
-
-```bash
-# Test WebSocket connection
-python tests/test_websocket.py
-
-# Test AI pipeline
-python tests/test_pipeline.py
-```
-
-### Performance Testing
-
-```bash
-# Latency testing
-python tests/test_latency.py
-
-# Load testing
-python tests/test_load.py
-```
-
-## 🔧 Development
-
-### Project Structure
-
-```
-├── main.py                    # Entry point and Modal app
-├── requirements.txt           # Dependencies
-├── config/
-│   ├── __init__.py
-│   └── settings.py           # Configuration
-├── services/
-│   ├── __init__.py
-│   ├── stt_service.py        # Deepgram integration
-│   ├── llm_service.py        # Groq integration
-│   └── tts_service.py        # ElevenLabs integration
-├── utils/
-│   ├── __init__.py
-│   ├── audio_processor.py    # Audio utilities
-│   └── conversation.py       # Conversation management
-├── tests/
-│   ├── __init__.py
-│   ├── test_pipeline.py      # Pipeline tests
-│   └── test_websocket.py     # WebSocket tests
-└── .env                      # Local environment variables
-```
-
-### Key Dependencies
-
-```txt
-fastapi>=0.104.0
-websockets>=12.0
-deepgram-sdk>=2.12.0
-groq>=0.4.0
-elevenlabs>=0.2.0
-python-multipart>=0.0.6
-pydantic>=2.0.0
-asyncio-mqtt>=0.16.0
-```
-
-## 📊 Performance Optimization
-
-### Latency Budget
-
-| Component | Target Latency | Optimization Strategy |
-|-----------|----------------|----------------------|
-| Audio Capture | <20ms | AudioWorklet on client |
-| Network (Up) | 20-50ms | Optimize connection |
-| STT (Deepgram) | 50-100ms | Streaming with interim results |
-| LLM (Groq) | 50-150ms | Time-to-first-token optimization |
-| TTS (ElevenLabs) | 80-200ms | Streaming audio chunks |
-| Network (Down) | 20-50ms | Optimize connection |
-| Audio Playback | 20-50ms | Minimal buffering |
-| **Total** | **<300ms** | Concurrent processing |
-
-### Optimization Techniques
-
-1. **Concurrent Processing**: All AI services run simultaneously
-2. **Streaming**: No waiting for complete responses
-3. **Queue Management**: Efficient producer-consumer pattern
-4. **Connection Pooling**: Reuse WebSocket connections
-5. **Audio Optimization**: 16kHz, 16-bit PCM format
-
-## 🔒 Security
-
-### Security Measures
-
-- **API Key Management**: Secure secrets in Modal
-- **Input Validation**: Pydantic models for data validation
-- **Rate Limiting**: Prevent abuse
-- **CORS Configuration**: Secure cross-origin requests
-- **Error Handling**: No sensitive data in error messages
-
-### Best Practices
-
-```python
-# Secure API key handling
-api_key = os.environ.get("DEEPGRAM_API_KEY")
-if not api_key:
-    raise ValueError("DEEPGRAM_API_KEY not configured")
-
-# Input validation
-from pydantic import BaseModel
-
-class AudioChunk(BaseModel):
-    data: bytes
-    timestamp: float
-    sample_rate: int = 16000
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **WebSocket Connection Failures**
-   - Check Modal deployment status
-   - Verify CORS configuration
-   - Ensure HTTPS/WSS connection
-
-2. **High Latency**
-   - Monitor network quality
-   - Check AI service status
-   - Verify concurrent processing
-
-3. **Audio Quality Issues**
-   - Check audio format (16kHz, 16-bit PCM)
-   - Verify microphone permissions
-   - Monitor audio buffer sizes
-
-### Debug Mode
-
-```python
-# Enable debug logging
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-# Add debug endpoints
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow()}
-```
-
-## 📈 Monitoring & Analytics
-
-### Metrics to Track
-
-- **End-to-end Latency**: Target <300ms
-- **WebSocket Connection Stability**: 99.9% uptime
-- **AI Service Response Times**: Monitor each service
-- **Error Rates**: Track and alert on failures
-- **Audio Quality**: Monitor audio processing success
-
-### Logging
-
-```python
-import logging
-from datetime import datetime
-
-logger = logging.getLogger(__name__)
-
-async def log_pipeline_metrics(stage: str, duration: float):
-    logger.info(f"Pipeline stage {stage} completed in {duration:.2f}ms")
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🔗 Related Projects
-
-- [Dharsan-VoiceAgent-Frontend](../Dharsan-VoiceAgent-Frontend) - React/TypeScript frontend
-- [Real-time AI Audio Demo Guide](../Dharsan-VoiceAgent-Frontend/Real-time%20AI%20Audio%20Demo_.pdf) - Implementation guide
+**Use Case**: Proof of concept, testing AI service integrations
+
+**Key Files**:
+- [CONVERSATION_METRICS.md](./v1/CONVERSATION_METRICS.md) - Enhanced conversation metrics system
+- [DATABASE_README.md](./v1/DATABASE_README.md) - SQLite-based metrics database
+- [V1_COMPLETE_ANALYSIS.md](./V1_COMPLETE_ANALYSIS.md) - Complete V1 system analysis
 
 ---
 
-**Built with ❤️ for demonstrating advanced real-time voice AI capabilities**
+### V2 - GKE Production Version
+**Status**: Complete | **Focus**: Kubernetes, WebRTC, Microservices
+
+**Evolution**:
+- **Phase 1**: WHIP protocol, STUN/TURN servers, Kafka, Redpanda
+- **Phase 2**: Moved to gRPC for better performance
+- **Phase 3**: Redis integration for session persistence
+- **Phase 4**: Self-hosted AI models (Whisper + Piper)
+- **Phase 5**: Event-driven architecture with deterministic flow
+
+**Features**:
+- **WebRTC**: WHIP protocol for real-time audio streaming
+- **gRPC**: High-performance inter-service communication
+- **Kafka/Redpanda**: Message bus for scalability
+- **Kubernetes**: Production deployment with auto-scaling
+- **Event-Driven**: Deterministic conversation flow
+- **Performance**: <5ms end-to-end latency, 95.8% success rate
+- **Self-Hosted AI**: Whisper for STT, Piper for TTS
+
+**Architecture**:
+```
+Frontend (React) → WebRTC/WebSocket → Media Server → Orchestrator → AI Services
+                                    ↓
+                              Kafka/Redpanda → STT/LLM/TTS Services
+```
+
+**Use Case**: Production deployment, high-performance voice conversations
+
+**Key Files**:
+- [README-Phase2.md](./v2/README-Phase2.md) - Phase 2 implementation details
+- [README-Phase3.md](./v2/README-Phase3.md) - Redis integration
+- [README-Phase4.md](./v2/README-Phase4.md) - Self-hosted AI models
+- [PIPELINE_TEST_RESULTS.md](./v2/PIPELINE_TEST_RESULTS.md) - Comprehensive test results
+- [WHIP_SETUP.md](./v2/WHIP_SETUP.md) - WebRTC WHIP protocol setup
+
+---
+
+### V3 - VAD & Live Conversations
+**Status**: In Development | **Focus**: Voice Activity Detection, Enhanced UX
+
+**Planned Features**:
+- **VAD**: Voice Activity Detection for natural conversations
+- **Live Transcription**: Real-time text display
+- **Conversation Management**: Context-aware dialogue
+- **Advanced Audio Processing**: Noise reduction, echo cancellation
+- **Multi-modal Support**: Text, voice, and visual interactions
+
+**Use Case**: Natural, human-like voice conversations
+
+**Key Files**:
+- [V3_COMPLETE_ANALYSIS.md](./V3_COMPLETE_ANALYSIS.md) - Complete V3 system analysis
+- [VAD_IMPROVEMENT_ANALYSIS.md](./VAD_IMPROVEMENT_ANALYSIS.md) - Voice Activity Detection analysis
+
+## Quick Start
+
+### Prerequisites
+- Python 3.8+ (for V1)
+- Go 1.24.5+ (for V2)
+- Docker (for containerized deployment)
+- kubectl (for Kubernetes deployment)
+- Node.js 18+ (for frontend)
+
+### V1 Backend (API-based)
+```bash
+# Clone the repository
+git clone https://github.com/dharsan99/Dharsan-VoiceAgent-Backend
+cd Dharsan-VoiceAgent-Backend
+
+# Set up Python environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env with your API keys
+
+# Start the backend
+python main.py
+```
+
+### V2 Backend (Kubernetes)
+```bash
+# Navigate to V2 directory
+cd v2
+
+# Deploy to GKE
+./deploy.sh
+
+# Check deployment status
+kubectl get pods -n voice-agent-phase5
+kubectl logs -n voice-agent-phase5 deployment/orchestrator
+```
+
+### Service Health Check
+```bash
+# Check all services
+./check-deployment.sh
+
+# Test individual services
+curl http://localhost:8080/health  # Media Server
+curl http://localhost:8001/health  # Orchestrator
+curl http://localhost:5000/health  # TTS Service
+```
+
+## Development Setup
+
+### Environment Configuration
+
+#### V1 Environment Variables
+```env
+# API Keys
+DEEPGRAM_API_KEY=your_deepgram_key
+GROQ_API_KEY=your_groq_key
+ELEVENLABS_API_KEY=your_elevenlabs_key
+AZURE_SPEECH_KEY=your_azure_key
+
+# Service URLs
+DEEPGRAM_URL=https://api.deepgram.com/v1/listen
+GROQ_URL=https://api.groq.com/openai/v1/chat/completions
+ELEVENLABS_URL=https://api.elevenlabs.io/v1/text-to-speech
+AZURE_SPEECH_URL=https://eastus.tts.speech.microsoft.com/cognitiveservices/v1
+```
+
+#### V2 Environment Variables
+```env
+# Kafka/Redpanda Configuration
+KAFKA_BROKERS=redpanda.voice-agent-phase5.svc.cluster.local:9092
+
+# AI Service Configuration
+STT_SERVICE_URL=http://stt-service.voice-agent-phase5.svc.cluster.local:8000
+LLM_SERVICE_URL=http://llm-service.voice-agent-phase5.svc.cluster.local:11434
+TTS_SERVICE_URL=http://tts-service.voice-agent-phase5.svc.cluster.local:5000
+
+# WebRTC Configuration
+ICE_SERVERS=stun:stun.l.google.com:19302
+```
+
+### Available Scripts
+```bash
+# V1 Development
+python main.py              # Start V1 backend
+python test_grpc_implementation.py  # Test gRPC implementation
+
+# V2 Development
+cd v2
+go build -o orchestrator    # Build orchestrator
+go build -o media-server    # Build media server
+./deploy.sh                 # Deploy to Kubernetes
+
+# Testing
+python test_system_readiness.py  # System readiness test
+python test_event_driven_flow.py # Event-driven flow test
+```
+
+## Deployment
+
+### V1 Deployment (Modal)
+```bash
+# Deploy to Modal
+modal deploy main.py
+
+# Check deployment
+modal app list
+modal logs voice-agent-backend
+```
+
+### V2 Deployment (GKE)
+```bash
+# Deploy to GKE
+cd v2
+./deploy.sh
+
+# Check deployment
+kubectl get pods -n voice-agent-phase5
+kubectl logs -f -n voice-agent-phase5 deployment/orchestrator
+
+# Access services
+kubectl port-forward -n voice-agent-phase5 svc/orchestrator 8001:8001
+kubectl port-forward -n voice-agent-phase5 svc/media-server 8080:8080
+```
+
+### Production Deployment
+```bash
+# Production deployment with monitoring
+cd v2
+./deploy-production.sh
+
+# Check production status
+./check-deployment.sh
+
+# Monitor logs
+kubectl logs -f -n voice-agent-phase5 deployment/orchestrator
+kubectl logs -f -n voice-agent-phase5 deployment/media-server
+```
+
+## Testing
+
+### Manual Testing
+1. **V1 Testing**: `http://localhost:8000/health` - API-based testing
+2. **V2 Testing**: `http://localhost:8080/health` - WebRTC testing
+3. **Phase 2 Testing**: `http://localhost:8001/health` - gRPC testing
+4. **Phase 5 Testing**: Event-driven testing
+
+### Automated Testing
+```bash
+# Run all tests
+python test_system_readiness.py
+
+# Run specific test suites
+python test_grpc_implementation.py
+python test_event_driven_flow.py
+python test_websocket_simple.py
+
+# Performance testing
+python test_phase2_backend.py
+```
+
+### Performance Testing
+```bash
+# Run performance benchmarks
+python test_grpc_communication.py
+
+# Check performance metrics
+./quick-service-check.js
+```
+
+## Documentation
+
+### Core Documentation
+- **[Quick Start](./QUICK_START.md)** - Quick setup guide
+- **[Setup](./SETUP.md)** - Detailed setup instructions
+- **[Versioning](./VERSIONING.md)** - Version management strategy
+- **[System Readiness Report](./system_readiness_report.md)** - System readiness analysis
+
+### V1 Documentation
+- **[Conversation Metrics](./v1/CONVERSATION_METRICS.md)** - Enhanced conversation metrics system
+- **[Database README](./v1/DATABASE_README.md)** - SQLite-based metrics database
+- **[V1 Complete Analysis](./V1_COMPLETE_ANALYSIS.md)** - Complete V1 system analysis
+
+### V2 Documentation
+- **[Phase 2 Implementation](./v2/README-Phase2.md)** - Phase 2 implementation details
+- **[Phase 3 Implementation](./v2/README-Phase3.md)** - Redis integration
+- **[Phase 4 Implementation](./v2/README-Phase4.md)** - Self-hosted AI models
+- **[Pipeline Test Results](./v2/PIPELINE_TEST_RESULTS.md)** - Comprehensive test results
+- **[WHIP Setup](./v2/WHIP_SETUP.md)** - WebRTC WHIP protocol setup
+
+### Architecture Documentation
+- **[V2 Complete Analysis](./V2_COMPLETE_ANALYSIS.md)** - Complete V2 system analysis
+- **[V3 Complete Analysis](./V3_COMPLETE_ANALYSIS.md)** - Complete V3 system analysis
+- **[Backend Refactoring Summary](./BACKEND_REFACTORING_SUMMARY.md)** - Code refactoring overview
+- **[Complete Pipeline Codebase Analysis](./COMPLETE_PIPELINE_CODEBASE_ANALYSIS.md)** - Pipeline architecture analysis
+
+### Audio Processing Documentation
+- **[Audio Enhancement Implementation](./AUDIO_ENHANCEMENT_IMPLEMENTATION.md)** - Audio processing improvements
+- **[Audio Flow Logic Analysis](./AUDIO_FLOW_LOGIC_ANALYSIS.md)** - Audio pipeline flow analysis
+- **[Audio Level Meter Implementation](./AUDIO_LEVEL_METER_IMPLEMENTATION.md)** - Audio visualization
+- **[Audio Pipeline Debugging Analysis](./AUDIO_PIPELINE_DEBUGGING_ANALYSIS.md)** - Audio pipeline debugging
+- **[Audio Pipeline Debugging Enhanced](./AUDIO_PIPELINE_DEBUGGING_ENHANCED.md)** - Enhanced debugging
+- **[Audio Pipeline Debugging Resolution](./AUDIO_PIPELINE_DEBUGGING_RESOLUTION.md)** - Debugging resolution
+- **[Complete Audio Buffering Implementation](./COMPLETE_AUDIO_BUFFERING_IMPLEMENTATION.md)** - Audio buffering system
+- **[Complete Audio Buffering Testing Status](./COMPLETE_AUDIO_BUFFERING_TESTING_STATUS.md)** - Buffering test results
+
+### Connection Management Documentation
+- **[Connection Management Analysis](./CONNECTION_MANAGEMENT_ANALYSIS.md)** - Connection management system
+- **[WebSocket Connection Final Fix](./WEBSOCKET_CONNECTION_FINAL_FIX.md)** - WebSocket fixes
+- **[WebSocket Connection Fix Success](./WEBSOCKET_CONNECTION_FIX_SUCCESS.md)** - Connection success
+- **[WebSocket Connection Fix](./WEBSOCKET_CONNECTION_FIX.md)** - Connection fixes
+- **[WebSocket Stability Fix](./WEBSOCKET_STABILITY_FIX.md)** - Stability improvements
+- **[WebSocket Audio Pipeline Test Results](./WEBSOCKET_AUDIO_PIPELINE_TEST_RESULTS.md)** - Pipeline test results
+- **[Realtime WebSocket Updates Implementation](./REALTIME_WEBSOCKET_UPDATES_IMPLEMENTATION.md)** - Real-time updates
+
+### Pipeline Documentation
+- **[Pipeline Completion Fixes Implementation](./PIPELINE_COMPLETION_FIXES_IMPLEMENTATION.md)** - Pipeline fixes
+- **[Pipeline Completion Issue Analysis](./PIPELINE_COMPLETION_ISSUE_ANALYSIS.md)** - Issue analysis
+- **[Pipeline Flag Implementation Plan](./PIPELINE_FLAG_IMPLEMENTATION_PLAN.md)** - Flag implementation
+- **[Pipeline Flag Integration Success](./PIPELINE_FLAG_INTEGRATION_SUCCESS.md)** - Integration success
+- **[Pipeline Flag System Design](./PIPELINE_FLAG_SYSTEM_DESIGN.md)** - System design
+- **[Pipeline State Management Live Status](./PIPELINE_STATE_MANAGEMENT_LIVE_STATUS.md)** - State management
+- **[Premature Pipeline Activation Fix](./PREMATURE_PIPELINE_ACTIVATION_FIX.md)** - Activation fixes
+
+### Session Management Documentation
+- **[Session ID Analysis and Fixes](./SESSION_ID_ANALYSIS_AND_FIXES.md)** - Session ID fixes
+- **[Session ID Consistency Fix](./SESSION_ID_CONSISTENCY_FIX.md)** - Consistency fixes
+- **[Session ID Fixes Summary](./SESSION_ID_FIXES_SUMMARY.md)** - Fixes summary
+- **[Session ID Resolution Verification](./SESSION_ID_RESOLUTION_VERIFICATION.md)** - Resolution verification
+- **[Final Session ID Resolution](./FINAL_SESSION_ID_RESOLUTION.md)** - Final resolution
+
+### GKE Deployment Documentation
+- **[GKE Current Status Analysis](./GKE_CURRENT_STATUS_ANALYSIS.md)** - Current status
+- **[GKE Final Status Report](./GKE_FINAL_STATUS_REPORT.md)** - Final status
+- **[GKE Optimization Deployment Success](./GKE_OPTIMIZATION_DEPLOYMENT_SUCCESS.md)** - Optimization success
+- **[GKE Optimization Implementation Guide](./GKE_OPTIMIZATION_IMPLEMENTATION_GUIDE.md)** - Implementation guide
+- **[GKE Pipeline Flow Analysis](./GKE_PIPELINE_FLOW_ANALYSIS.md)** - Pipeline flow
+- **[GKE Pipeline Logs VAD Analysis](./GKE_PIPELINE_LOGS_VAD_ANALYSIS.md)** - VAD analysis
+- **[GKE Production Deployment Guide](./GKE_PRODUCTION_DEPLOYMENT_GUIDE.md)** - Production guide
+- **[GKE Usage and Limits Analysis](./GKE_USAGE_AND_LIMITS_ANALYSIS.md)** - Usage analysis
+- **[GKE Auto Scaling Configuration](./GKE_AUTO_SCALING_CONFIGURATION.md)** - Auto-scaling
+- **[GKE Logs Analysis Pipeline Fixes](./GKE_LOGS_ANALYSIS_PIPELINE_FIXES.md)** - Logs analysis
+
+### Service-Specific Documentation
+- **[STT Issue Fix Summary](./STT_ISSUE_FIX_SUMMARY.md)** - STT fixes
+- **[STT Optimization Deployment Success](./STT_OPTIMIZATION_DEPLOYMENT_SUCCESS.md)** - STT optimization
+- **[STT Service Kubernetes Optimization](./STT_SERVICE_KUBERNETES_OPTIMIZATION.md)** - STT K8s optimization
+- **[STT Classification Improvements](./STT_CLASSIFICATION_IMPROVEMENTS.md)** - STT improvements
+- **[STT Connection Fixes Analysis](./STT_CONNECTION_FIXES_ANALYSIS.md)** - STT connection fixes
+- **[STT Fallback Response Fix](./STT_FALLBACK_RESPONSE_FIX.md)** - STT fallback
+- **[TTS Pipeline Analysis](./TTS_PIPELINE_ANALYSIS.md)** - TTS pipeline
+- **[Whisper Large Testing Results](./WHISPER_LARGE_TESTING_RESULTS.md)** - Whisper testing
+- **[Whisper Large Upgrade Implementation](./WHISPER_LARGE_UPGRADE_IMPLEMENTATION.md)** - Whisper upgrade
+
+### Frontend Integration Documentation
+- **[Frontend Pipeline Components Success](./FRONTEND_PIPELINE_COMPONENTS_SUCCESS.md)** - Frontend success
+- **[Frontend Pipeline Issues Analysis](./FRONTEND_PIPELINE_ISSUES_ANALYSIS.md)** - Frontend issues
+- **[Phase 2 Frontend Implementation Success](./PHASE2_FRONTEND_IMPLEMENTATION_SUCCESS.md)** - Phase 2 success
+- **[Phase 3 Implementation Summary](./PHASE3_IMPLEMENTATION_SUMMARY.md)** - Phase 3 summary
+- **[Phase 4 Implementation Summary](./PHASE4_IMPLEMENTATION_SUMMARY.md)** - Phase 4 summary
+
+### Performance and Optimization Documentation
+- **[Memory Optimization Plan](./MEMORY_OPTIMIZATION_PLAN.md)** - Memory optimization
+- **[Memory Optimization Success](./MEMORY_OPTIMIZATION_SUCCESS.md)** - Optimization success
+- **[GCP Free Tier Memory Analysis](./GCP_FREE_TIER_MEMORY_ANALYSIS.md)** - Memory analysis
+- **[Kafka Configuration Fix Success](./KAFKA_CONFIGURATION_FIX_SUCCESS.md)** - Kafka fixes
+- **[Media Server Loadbalancer Fix](./MEDIA_SERVER_LOADBALANCER_FIX.md)** - Loadbalancer fixes
+- **[Media Server Session Affinity Fix](./MEDIA_SERVER_SESSION_AFFINITY_FIX.md)** - Session affinity
+- **[WHIP Connection Timing Fix](./WHIP_CONNECTION_TIMING_FIX.md)** - WHIP timing
+
+### User Experience Documentation
+- **[Automatic Listening and Connection Fix](./AUTOMATIC_LISTENING_AND_CONNECTION_FIX.md)** - Auto-connection
+- **[CORS Fix for Listening Endpoints](./CORS_FIX_FOR_LISTENING_ENDPOINTS.md)** - CORS fixes
+- **[Dynamic Button Implementation](./DYNAMIC_BUTTON_IMPLEMENTATION.md)** - Dynamic UI
+- **[Graceful Stop Conversation Implementation](./GRACEFUL_STOP_CONVERSATION_IMPLEMENTATION.md)** - Graceful stop
+- **[Manual Workflow Restored](./MANUAL_WORKFLOW_RESTORED.md)** - Manual workflow
+- **[Silence and Unwanted Audio Analysis](./SILENCE_AND_UNWANTED_AUDIO_ANALYSIS.md)** - Audio analysis
+- **[Simplified Frontend and Audio Filtering Implementation](./SIMPLIFIED_FRONTEND_AND_AUDIO_FILTERING_IMPLEMENTATION.md)** - Audio filtering
+
+### Testing and Analysis Documentation
+- **[Test Report](./test_report.md)** - Test results
+- **[gRPC Test Report](./grpc_test_report.md)** - gRPC testing
+- **[System Readiness Report](./system_readiness_report.md)** - System readiness
+- **[Current System Status Analysis](./CURRENT_SYSTEM_STATUS_ANALYSIS.md)** - Current status
+- **[Final System Status Report](./FINAL_SYSTEM_STATUS_REPORT.md)** - Final status
+- **[Event Sequence Implementation Summary](./EVENT_SEQUENCE_IMPLEMENTATION_SUMMARY.md)** - Event sequence
+
+### Development Documentation
+- **[Modal Setup](./MODAL_SETUP.md)** - Modal deployment setup
+- **[V2 Phase 1 TODO](./V2_PHASE1_TODO.md)** - Phase 1 tasks
+- **[V2 Phase 3 TODO](./V2_PHASE3_TODO.md)** - Phase 3 tasks
+- **[V2 Phase 4 TODO](./V2_PHASE4_TODO.md)** - Phase 4 tasks
+
+## Performance Metrics
+
+### Current Performance (Phase 5)
+- **End-to-End Latency**: < 5ms (target: < 100ms)
+- **Success Rate**: 95.8% (target: > 85%)
+- **WHIP Connection**: 2.5ms average
+- **WebSocket Communication**: 1.5ms average
+- **AI Pipeline Response**: 2.0ms average
+- **gRPC Communication**: < 1ms average
+
+### Resource Usage
+- **Memory Usage**: Optimized with automatic cleanup
+- **CPU Usage**: Efficient processing with connection pooling
+- **Network**: Optimized for low-latency communication
+- **Storage**: Minimal with efficient data structures
+
+## Troubleshooting
+
+### Common Issues
+
+#### WebSocket Connection Issues
+- **Issue**: Connection timeouts or failures
+- **Solution**: Check backend service status
+- **Debug**: Use browser console and network tab
+- **Reference**: [WebSocket Connection Fix](./WEBSOCKET_CONNECTION_FIX.md)
+
+#### Audio Pipeline Issues
+- **Issue**: Audio not processing correctly
+- **Solution**: Check audio pipeline state
+- **Debug**: Monitor pipeline logs
+- **Reference**: [Audio Pipeline Debugging Resolution](./AUDIO_PIPELINE_DEBUGGING_RESOLUTION.md)
+
+#### Kubernetes Deployment Issues
+- **Issue**: Pods not starting or services unavailable
+- **Solution**: Check resource limits and service configuration
+- **Debug**: Use kubectl logs and describe commands
+- **Reference**: [GKE Current Status Analysis](./GKE_CURRENT_STATUS_ANALYSIS.md)
+
+#### Performance Issues
+- **Issue**: High latency or poor audio quality
+- **Solution**: Check network conditions and service health
+- **Monitoring**: Use built-in performance metrics
+- **Reference**: [GKE Optimization Implementation Guide](./GKE_OPTIMIZATION_IMPLEMENTATION_GUIDE.md)
+
+### Debug Commands
+```bash
+# Check service health
+./check-deployment.sh
+
+# View service logs
+kubectl logs -n voice-agent-phase5 deployment/orchestrator
+kubectl logs -n voice-agent-phase5 deployment/media-server
+kubectl logs -n voice-agent-phase5 deployment/tts-service
+
+# Test individual services
+curl http://localhost:8080/health
+curl http://localhost:8001/health
+curl http://localhost:5000/health
+
+# Check system readiness
+python test_system_readiness.py
+```
+
+## Contributing
+
+### Development Workflow
+1. **Fork** the repository
+2. **Create** a feature branch
+3. **Make** your changes
+4. **Test** thoroughly
+5. **Submit** a pull request
+
+### Code Standards
+- **Python**: Follow PEP 8 for V1
+- **Go**: Follow Go best practices for V2
+- **Testing**: Include unit tests for new features
+- **Documentation**: Update relevant documentation
+
+### Testing Requirements
+- **Unit Tests**: 80%+ coverage
+- **Integration Tests**: End-to-end functionality
+- **Performance Tests**: Latency and throughput validation
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- **React Team**: For the excellent frontend framework
+- **WebRTC Community**: For real-time communication standards
+- **Kubernetes Community**: For container orchestration
+- **AI Service Providers**: Deepgram, Groq, ElevenLabs, Azure, Google Cloud
+- **Open Source Projects**: Whisper, Piper, Redpanda, Prometheus
+
+---
+
+## Support
+
+For questions, issues, or contributions:
+- **Issues**: [GitHub Issues](https://github.com/dharsan99/Dharsan-VoiceAgent-Backend/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/dharsan99/Dharsan-VoiceAgent-Backend/discussions)
+- **Documentation**: See the [Documentation](#documentation) section above
+
+---
+
+**Ready to build amazing voice AI experiences!**

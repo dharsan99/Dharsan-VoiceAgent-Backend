@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-service
+  namespace: voice-agent-phase4
+  labels:
+    app: llm-service
+    component: ai
+spec:
+  selector:
+    app: llm-service
+    component: ai
+  ports:
+    - protocol: TCP
+      port: 11434
+      targetPort: 11434
+      name: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: llm-service
+  namespace: voice-agent-phase4
+  labels:
+    app: llm-service
+    component: ai
+spec:
+  serviceName: "llm-service"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-service
+      component: ai
+  template:
+    metadata:
+      labels:
+        app: llm-service
+        component: ai
+    spec:
+      initContainers:
+        # This container ensures the model is pulled before the main container starts
+        - name: ollama-pull-llama3
+          image: ollama/ollama:latest
+          command: ["ollama", "pull", "llama3:8b"]
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+      containers:
+        - name: llm-service
+          image: ollama/ollama:latest
+          env:
+            - name: OLLAMA_HOST
+              value: "0.0.0.0"
+            - name: OLLAMA_ORIGINS
+              value: "*"
+          ports:
+            - containerPort: 11434
+              name: http
+          volumeMounts:
+            - name: ollama-models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: "2000m"
+              memory: "8Gi"
+            limits:
+              cpu: "4000m"
+              memory: "16Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: 11434
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+  volumeClaimTemplates:
+  - metadata:
+      name: ollama-models
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: standard
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-service-config
+  namespace: voice-agent-phase4
+data:
+  default-model: "llama3:8b"
+  max-tokens: "150"
+  temperature: "0.7"
+  top-p: "0.9"
+  system-prompt: |
+    You are a helpful voice assistant. Keep your responses concise and natural for voice interaction. 
+    Respond in a conversational tone that sounds natural when spoken aloud. 

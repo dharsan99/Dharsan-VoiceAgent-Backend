@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: media-server
+  namespace: voice-agent-phase5
+  labels:
+    app: media-server
+    component: media
+    phase: "5"
+    version: "5.0.0"
+spec:
+  type: LoadBalancer
+  selector:
+    app: media-server
+    component: media
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8001
+      name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: media-server-rtp
+  namespace: voice-agent-phase5
+  labels:
+    app: media-server
+    component: media-rtp
+    phase: "5"
+    version: "5.0.0"
+spec:
+  type: ClusterIP
+  selector:
+    app: media-server
+    component: media
+  ports:
+    - protocol: UDP
+      port: 10000
+      targetPort: 10000
+      name: rtp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-server
+  namespace: voice-agent-phase5
+  labels:
+    app: media-server
+    component: media
+    phase: "5"
+    version: "5.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: media-server
+      component: media
+  template:
+    metadata:
+      labels:
+        app: media-server
+        component: media
+        phase: "5"
+        version: "5.0.0"
+    spec:
+      containers:
+        - name: media-server
+          image: asia-south1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/media-server:v1.0.36
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8001
+              name: http
+            - containerPort: 10000
+              name: rtp
+              protocol: UDP
+          env:
+            - name: REDPANDA_HOST
+              value: "redpanda.voice-agent-phase5.svc.cluster.local"
+            - name: REDPANDA_PORT
+              value: "9092"
+            - name: LOG_LEVEL
+              value: "info"
+          # Optimized resources - reduced memory
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL 

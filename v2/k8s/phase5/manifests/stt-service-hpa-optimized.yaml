@@ -1,0 +1,51 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: stt-service-hpa
+  namespace: voice-agent-phase5
+  labels:
+    app: stt-service
+    component: ai
+    phase: "5"
+    version: "5.0.1"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stt-service
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  # CPU-based scaling (primary metric)
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60  # Lower threshold for faster scaling
+  # Memory-based scaling (secondary metric)
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70  # Lower threshold for memory pressure
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30  # Faster scale-up for real-time needs
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 10  # Scale up immediately
+      - type: Pods
+        value: 2
+        periodSeconds: 10  # Add 2 pods at a time
+    scaleDown:
+      stabilizationWindowSeconds: 300  # Slower scale-down to prevent thrashing
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60  # Scale down gradually
+      - type: Pods
+        value: 1
+        periodSeconds: 60  # Remove 1 pod at a time 

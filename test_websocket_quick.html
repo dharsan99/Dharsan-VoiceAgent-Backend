@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Agent WebSocket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        #log { background: #f8f9fa; padding: 10px; border-radius: 5px; height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Voice Agent Implementation Test</h1>
+    
+    <div id="status" class="status info">Ready to test...</div>
+    
+    <div>
+        <button onclick="testMediaServer()">Test Media Server</button>
+        <button onclick="testOrchestrator()">Test Orchestrator</button>
+        <button onclick="testWebSocket()">Test WebSocket</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <div id="log"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        async function testMediaServer() {
+            updateStatus('Testing Media Server...', 'info');
+            try {
+                const response = await fetch('http://35.244.8.62:8001/health');
+                if (response.ok) {
+                    const data = await response.text();
+                    log('✅ Media Server Health Check: PASS', 'success');
+                    log(`Response: ${data}`, 'info');
+                    updateStatus('Media Server: Healthy', 'success');
+                } else {
+                    log(`❌ Media Server Health Check: FAIL (${response.status})`, 'error');
+                    updateStatus('Media Server: Unhealthy', 'error');
+                }
+            } catch (error) {
+                log(`❌ Media Server Connection Error: ${error.message}`, 'error');
+                updateStatus('Media Server: Connection Failed', 'error');
+            }
+        }
+
+        async function testOrchestrator() {
+            updateStatus('Testing Orchestrator...', 'info');
+            try {
+                const response = await fetch('http://34.47.230.178:8001/health');
+                if (response.ok) {
+                    const data = await response.text();
+                    log('✅ Orchestrator Health Check: PASS', 'success');
+                    log(`Response: ${data}`, 'info');
+                    updateStatus('Orchestrator: Healthy', 'success');
+                } else {
+                    log(`❌ Orchestrator Health Check: FAIL (${response.status})`, 'error');
+                    updateStatus('Orchestrator: Unhealthy', 'error');
+                }
+            } catch (error) {
+                log(`❌ Orchestrator Connection Error: ${error.message}`, 'error');
+                updateStatus('Orchestrator: Connection Failed', 'error');
+            }
+        }
+
+        function testWebSocket() {
+            updateStatus('Testing WebSocket Connection...', 'info');
+            
+            // Test Media Server WebSocket
+            const mediaWs = new WebSocket('ws://35.244.8.62:8001/ws');
+            
+            mediaWs.onopen = function() {
+                log('✅ Media Server WebSocket: Connected', 'success');
+                mediaWs.close();
+            };
+            
+            mediaWs.onerror = function(error) {
+                log('❌ Media Server WebSocket: Connection Failed', 'error');
+            };
+            
+            // Test Orchestrator WebSocket
+            const orchWs = new WebSocket('ws://34.47.230.178:8001/ws');
+            
+            orchWs.onopen = function() {
+                log('✅ Orchestrator WebSocket: Connected', 'success');
+                orchWs.close();
+                updateStatus('WebSocket: Both services connected', 'success');
+            };
+            
+            orchWs.onerror = function(error) {
+                log('❌ Orchestrator WebSocket: Connection Failed', 'error');
+            };
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Auto-run basic tests on page load
+        window.onload = function() {
+            log('🚀 Starting Voice Agent Implementation Tests...', 'info');
+            setTimeout(testMediaServer, 1000);
+            setTimeout(testOrchestrator, 2000);
+            setTimeout(testWebSocket, 3000);
+        };
+    </script>
+</body>
+</html> 

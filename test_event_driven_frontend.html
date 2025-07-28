@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event-Driven Voice Agent Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .listening { background-color: #fff3cd; color: #856404; }
+        .thinking { background-color: #cce5ff; color: #004085; }
+        .speaking { background-color: #d1ecf1; color: #0c5460; }
+        
+        .transcript {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            min-height: 100px;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .event-sequence {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Event-Driven Voice Agent Test</h1>
+        
+        <div class="event-sequence">
+            <h3>Expected Event Sequence:</h3>
+            <ol>
+                <li><strong>Connect</strong> → greeting_request → greeting</li>
+                <li><strong>Start Listening</strong> → start_listening → pipeline_state_update (listening)</li>
+                <li><strong>Speak</strong> → interim_transcript (live)</li>
+                <li><strong>Get Answer</strong> → trigger_llm → llm_response_text + tts_audio_chunk</li>
+            </ol>
+        </div>
+        
+        <div id="status" class="status disconnected">Disconnected</div>
+        
+        <div class="controls">
+            <button id="connectBtn" class="btn-primary" onclick="connect()">Connect</button>
+            <button id="startBtn" class="btn-success" onclick="startListening()" disabled>Start Listening</button>
+            <button id="stopBtn" class="btn-danger" onclick="stopListening()" disabled>Get Answer</button>
+            <button id="disconnectBtn" class="btn-secondary" onclick="disconnect()" disabled>Disconnect</button>
+        </div>
+        
+        <div class="transcript">
+            <h3>Transcript:</h3>
+            <div id="transcript">No transcript yet...</div>
+        </div>
+        
+        <div class="transcript">
+            <h3>AI Response:</h3>
+            <div id="aiResponse">No response yet...</div>
+        </div>
+        
+        <div class="log">
+            <h3>Event Log:</h3>
+            <div id="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+        let isListening = false;
+        let sessionId = null;
+        let transcript = '';
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(status, className) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = status;
+            statusDiv.className = `status ${className}`;
+        }
+        
+        function updateButtons() {
+            document.getElementById('connectBtn').disabled = isConnected;
+            document.getElementById('startBtn').disabled = !isConnected || isListening;
+            document.getElementById('stopBtn').disabled = !isConnected || !isListening;
+            document.getElementById('disconnectBtn').disabled = !isConnected;
+        }
+        
+        function connect() {
+            if (ws) {
+                ws.close();
+            }
+            
+            // Connect to the orchestrator WebSocket
+            ws = new WebSocket('ws://34.47.230.178:8001/ws');
+            
+            ws.onopen = function() {
+                isConnected = true;
+                updateStatus('Connected', 'connected');
+                updateButtons();
+                log('✅ WebSocket connected');
+                
+                // Generate session ID
+                sessionId = `test_session_${Date.now()}`;
+                log(`📝 Session ID: ${sessionId}`);
+                
+                // Send greeting request
+                const greetingRequest = {
+                    event: 'greeting_request',
+                    session_id: sessionId
+                };
+                ws.send(JSON.stringify(greetingRequest));
+                log('📤 Sent: greeting_request');
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    log(`📥 Received: ${JSON.stringify(message)}`);
+                    
+                    // Handle different message types
+                    if (message.event) {
+                        handleEventMessage(message);
+                    } else if (message.type) {
+                        handleTypeMessage(message);
+                    }
+                } catch (error) {
+                    log(`❌ Error parsing message: ${error.message}`);
+                }
+            };
+            
+            ws.onerror = function(error) {
+                log(`❌ WebSocket error: ${error}`);
+                updateStatus('Connection Error', 'disconnected');
+            };
+            
+            ws.onclose = function() {
+                isConnected = false;
+                isListening = false;
+                updateStatus('Disconnected', 'disconnected');
+                updateButtons();
+                log('🔌 WebSocket disconnected');
+            };
+        }
+        
+        function handleEventMessage(message) {
+            switch (message.event) {
+                case 'greeting':
+                    log(`🎉 Greeting received: "${message.text}"`);
+                    document.getElementById('aiResponse').textContent = message.text;
+                    break;
+                    
+                case 'interim_transcript':
+                    document.getElementById('transcript').textContent = message.text;
+                    log(`📝 Interim transcript: "${message.text}"`);
+                    break;
+                    
+                case 'final_transcript':
+                    transcript = message.text;
+                    document.getElementById('transcript').textContent = message.text;
+                    log(`📝 Final transcript: "${message.text}"`);
+                    break;
+                    
+                case 'llm_response_text':
+                    document.getElementById('aiResponse').textContent = message.text;
+                    log(`🤖 LLM response: "${message.text}"`);
+                    break;
+                    
+                case 'tts_audio_chunk':
+                    log(`🔊 TTS audio chunk received (${message.audio_data ? message.audio_data.length : 0} bytes)`);
+                    break;
+                    
+                case 'agent_status':
+                    updateStatus(message.text, message.text);
+                    log(`👤 Agent status: ${message.text}`);
+                    break;
+                    
+                default:
+                    log(`❓ Unknown event: ${message.event}`);
+            }
+        }
+        
+        function handleTypeMessage(message) {
+            switch (message.type) {
+                case 'pipeline_state_update':
+                    log(`🔄 Pipeline state: ${message.state}`);
+                    if (message.state === 'listening') {
+                        updateStatus('Listening', 'listening');
+                    } else if (message.state === 'processing') {
+                        updateStatus('Thinking', 'thinking');
+                    } else if (message.state === 'complete') {
+                        updateStatus('Ready', 'connected');
+                    }
+                    break;
+                    
+                case 'info':
+                    log(`ℹ️ Info: ${message.message}`);
+                    if (message.message && message.message.includes('Started listening')) {
+                        updateStatus('Listening', 'listening');
+                    }
+                    break;
+                    
+                case 'error':
+                    log(`❌ Error: ${message.error}`);
+                    updateStatus('Error', 'disconnected');
+                    break;
+                    
+                default:
+                    log(`❓ Unknown type: ${message.type}`);
+            }
+        }
+        
+        function startListening() {
+            if (!ws || !isConnected) return;
+            
+            const startListeningEvent = {
+                event: 'start_listening',
+                session_id: sessionId
+            };
+            ws.send(JSON.stringify(startListeningEvent));
+            log('📤 Sent: start_listening');
+            
+            isListening = true;
+            updateButtons();
+            updateStatus('Starting...', 'listening');
+        }
+        
+        function stopListening() {
+            if (!ws || !isConnected || !isListening) return;
+            
+            const triggerLLMEvent = {
+                event: 'trigger_llm',
+                final_transcript: transcript || 'Hello, this is a test message',
+                session_id: sessionId
+            };
+            ws.send(JSON.stringify(triggerLLMEvent));
+            log('📤 Sent: trigger_llm');
+            
+            isListening = false;
+            updateButtons();
+            updateStatus('Processing...', 'thinking');
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+        }
+        
+        // Initialize
+        updateButtons();
+        log('🚀 Event-Driven Voice Agent Test Ready');
+        log('📍 Backend URL: ws://34.47.230.178:8001/ws');
+    </script>
+</body>
+</html> 

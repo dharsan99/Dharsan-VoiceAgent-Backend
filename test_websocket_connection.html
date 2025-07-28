@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        #log { background: #f8f9fa; padding: 10px; border-radius: 5px; height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <div id="status" class="status info">Testing WebSocket connection...</div>
+    <button onclick="testConnection()">Test Connection</button>
+    <button onclick="clearLog()">Clear Log</button>
+    <div id="log"></div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        async function testConnection() {
+            clearLog();
+            updateStatus('Testing WebSocket connection...', 'info');
+            
+            const orchestratorWsUrl = 'ws://34.47.230.178:8001/ws';
+            log(`Connecting to: ${orchestratorWsUrl}`);
+            
+            try {
+                const websocket = new WebSocket(orchestratorWsUrl);
+                
+                websocket.onopen = () => {
+                    log('✅ WebSocket connection opened successfully');
+                    updateStatus('WebSocket connected successfully!', 'success');
+                    
+                    // Send test message
+                    const testMessage = {
+                        type: 'session_info',
+                        session_id: 'test_session_' + Date.now(),
+                        version: 'phase2'
+                    };
+                    log(`Sending test message: ${JSON.stringify(testMessage)}`);
+                    websocket.send(JSON.stringify(testMessage));
+                };
+                
+                websocket.onmessage = (event) => {
+                    log(`📨 Received message: ${event.data}`);
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`📋 Parsed message type: ${data.type}`);
+                    } catch (e) {
+                        log(`❌ Failed to parse message: ${e.message}`);
+                    }
+                };
+                
+                websocket.onerror = (error) => {
+                    log(`❌ WebSocket error: ${error}`);
+                    updateStatus('WebSocket connection failed!', 'error');
+                };
+                
+                websocket.onclose = (event) => {
+                    log(`🔌 WebSocket closed: code=${event.code}, reason=${event.reason}`);
+                    updateStatus('WebSocket connection closed', 'error');
+                };
+                
+                // Test timeout
+                setTimeout(() => {
+                    if (websocket.readyState === WebSocket.CONNECTING) {
+                        log('⏰ Connection timeout after 10 seconds');
+                        updateStatus('Connection timeout!', 'error');
+                        websocket.close();
+                    }
+                }, 10000);
+                
+            } catch (error) {
+                log(`❌ Failed to create WebSocket: ${error.message}`);
+                updateStatus('Failed to create WebSocket connection!', 'error');
+            }
+        }
+
+        // Auto-test on page load
+        window.onload = () => {
+            log('🚀 Page loaded, starting WebSocket test...');
+            testConnection();
+        };
+    </script>
+</body>
+</html> 
