@@ -141,10 +141,52 @@ func (o *Orchestrator) startWebSocketServer() {
 	// Add CORS middleware
 	corsMiddleware := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+			// Get environment
+			env := os.Getenv("ENVIRONMENT")
+
+			// Get allowed origins
+			var allowedOrigins []string
+			if env == "production" {
+				corsOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+				if corsOrigins != "" {
+					allowedOrigins = strings.Split(corsOrigins, ",")
+				} else {
+					allowedOrigins = []string{
+						"https://dharsan-voice-agent-frontend.vercel.app",
+						"https://voice-agent-frontend.vercel.app",
+						"https://voice-agent.com",
+						"https://www.voice-agent.com",
+					}
+				}
+			} else {
+				allowedOrigins = []string{"*"}
+			}
+
+			// Check origin
+			origin := r.Header.Get("Origin")
+			allowedOrigin := "*"
+
+			if env == "production" {
+				for _, allowed := range allowedOrigins {
+					if allowed == origin {
+						allowedOrigin = origin
+						break
+					}
+				}
+			}
+
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Origin, User-Agent")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Origin, User-Agent, X-Session-ID")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+			// Set security headers for production
+			if env == "production" {
+				w.Header().Set("X-Content-Type-Options", "nosniff")
+				w.Header().Set("X-Frame-Options", "DENY")
+				w.Header().Set("X-XSS-Protection", "1; mode=block")
+				w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			}
 
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)

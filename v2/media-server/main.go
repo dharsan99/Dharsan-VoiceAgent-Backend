@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -79,11 +80,33 @@ func main() {
 // CORS middleware
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Origin, User-Agent, X-Session-ID")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		// Get CORS configuration
+		corsConfig := config.GetCORSConfig()
+
+		// Get the origin from the request
+		origin := r.Header.Get("Origin")
+
+		// Check if origin is allowed
+		allowedOrigin := corsConfig.GetAllowedOrigin(origin)
+		if allowedOrigin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		}
+
+		// Set other CORS headers
+		w.Header().Set("Access-Control-Allow-Methods", strings.Join(corsConfig.AllowedMethods, ", "))
+		w.Header().Set("Access-Control-Allow-Headers", strings.Join(corsConfig.AllowedHeaders, ", "))
+
+		if corsConfig.AllowCredentials {
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+
+		// Set security headers for production
+		if os.Getenv("ENVIRONMENT") == "production" {
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("X-XSS-Protection", "1; mode=block")
+			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		}
 
 		// Handle preflight requests
 		if r.Method == "OPTIONS" {
