@@ -70,4 +70,18 @@ v2/tts-service/voices/en_US-lessac-high.onnx
 
 # AI model files (general pattern)
 v2/stt-service/models/*.bin
-v2/tts-service/voices/*.onnx 
+v2/tts-service/voices/*.onnx
+
+# Google Cloud service account files
+*.json
+!package.json
+!package-lock.json
+!go.mod
+!go.sum
+!tsconfig*.json
+!vite.config.ts
+!tailwind.config.js
+!postcss.config.js
+!eslint.config.js
+!jest.config.js
+!vercel.json 
