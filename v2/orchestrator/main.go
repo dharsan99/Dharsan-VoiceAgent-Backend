@@ -28,6 +28,14 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// getEnv gets an environment variable with a default value
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
 // Define the structure for incoming and outgoing WebSocket messages
 type WebSocketMessage struct {
 	Event           string  `json:"event"`
@@ -38,6 +46,10 @@ type WebSocketMessage struct {
 	AudioData       string  `json:"audio_data,omitempty"`
 	IsFinal         bool    `json:"is_final,omitempty"`
 	Confidence      float64 `json:"confidence,omitempty"`
+	// TTS request fields
+	Voice  string  `json:"voice,omitempty"`
+	Speed  float64 `json:"speed,omitempty"`
+	Format string  `json:"format,omitempty"`
 }
 
 var upgrader = websocket.Upgrader{
@@ -64,10 +76,12 @@ type Orchestrator struct {
 	stateManager *pipeline.PipelineStateManager
 	// Service coordinators for each session
 	coordinators sync.Map
+	// Kafka enabled flag
+	kafkaEnabled bool
 }
 
 // NewOrchestrator creates a new orchestrator instance
-func NewOrchestrator(kafkaService *kafka.Service, aiService *ai.Service, logger *logger.Logger) *Orchestrator {
+func NewOrchestrator(kafkaService *kafka.Service, aiService *ai.Service, logger *logger.Logger, kafkaEnabled bool) *Orchestrator {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Orchestrator{
 		kafkaService: kafkaService,
@@ -77,6 +91,7 @@ func NewOrchestrator(kafkaService *kafka.Service, aiService *ai.Service, logger 
 		ctx:          ctx,
 		cancel:       cancel,
 		stateManager: pipeline.NewPipelineStateManager(logger),
+		kafkaEnabled: kafkaEnabled,
 	}
 }
 
@@ -87,8 +102,13 @@ func (o *Orchestrator) Start() error {
 	// Start WebSocket server
 	go o.startWebSocketServer()
 
-	// Start audio consumption
-	go o.consumeAudio()
+	// Start audio consumption only if Kafka is enabled
+	if o.kafkaEnabled {
+		go o.consumeAudio()
+		o.logger.Info("Audio consumption started (Kafka enabled)")
+	} else {
+		o.logger.Info("Audio consumption disabled (Kafka disabled for local development)")
+	}
 
 	o.logger.Info("Orchestrator started successfully")
 	return nil
@@ -200,14 +220,91 @@ func (o *Orchestrator) startWebSocketServer() {
 	// Health check endpoint
 	http.HandleFunc("/health", corsMiddleware(o.handleHealth))
 
+	// Logs endpoint for backend log access
+	http.HandleFunc("/logs", corsMiddleware(o.handleLogs))
+
 	// WebSocket endpoint
 	http.HandleFunc("/ws", corsMiddleware(o.handleWebSocket))
 
-	port := ":8001"
+	// gRPC WebSocket endpoint
+	http.HandleFunc("/grpc", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		// Simple WebSocket handler for gRPC bridge
+		upgrader := websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true // Allow all origins for development
+			},
+		}
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			o.logger.WithField("error", err).Error("Failed to upgrade gRPC WebSocket connection")
+			return
+		}
+		defer conn.Close()
+
+		o.logger.Info("gRPC WebSocket client connected")
+
+		// Handle messages
+		for {
+			var msg map[string]interface{}
+			err := conn.ReadJSON(&msg)
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					o.logger.WithField("error", err).Error("gRPC WebSocket read error")
+				}
+				break
+			}
+
+			// Simple response for now
+			response := map[string]interface{}{
+				"id": msg["id"],
+				"result": map[string]interface{}{
+					"status":  "success",
+					"message": "gRPC WebSocket bridge active",
+				},
+			}
+
+			if err := conn.WriteJSON(response); err != nil {
+				o.logger.WithField("error", err).Error("Failed to send gRPC WebSocket response")
+				break
+			}
+		}
+
+		o.logger.Info("gRPC WebSocket client disconnected")
+	}))
+
+	port := ":" + getEnv("ORCHESTRATOR_PORT", "8004")
 	o.logger.WithField("port", port).Info("Starting WebSocket server")
 
-	if err := http.ListenAndServe(port, nil); err != nil {
-		o.logger.WithField("error", err).Fatal("Failed to start WebSocket server")
+	// Check if HTTPS is enabled
+	enableHTTPS := os.Getenv("ENABLE_HTTPS") == "true"
+
+	if enableHTTPS {
+		// HTTPS server configuration
+		certPath := os.Getenv("SSL_CERT_PATH")
+		keyPath := os.Getenv("SSL_KEY_PATH")
+
+		if certPath == "" {
+			certPath = "/etc/ssl/certs/server.crt"
+		}
+		if keyPath == "" {
+			keyPath = "/etc/ssl/private/server.key"
+		}
+
+		o.logger.WithFields(map[string]interface{}{
+			"cert_path": certPath,
+			"key_path":  keyPath,
+		}).Info("Starting HTTPS WebSocket server")
+
+		if err := http.ListenAndServeTLS(port, certPath, keyPath, nil); err != nil {
+			o.logger.WithField("error", err).Fatal("Failed to start HTTPS WebSocket server")
+		}
+	} else {
+		// HTTP server (for development)
+		o.logger.Info("Starting HTTP WebSocket server (development mode)")
+		if err := http.ListenAndServe(port, nil); err != nil {
+			o.logger.WithField("error", err).Fatal("Failed to start HTTP WebSocket server")
+		}
 	}
 }
 
@@ -237,8 +334,8 @@ func (o *Orchestrator) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	pingTicker := time.NewTicker(30 * time.Second)
 	defer pingTicker.Stop()
 
-	// Set initial read deadline
-	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	// Set initial read deadline (increased for long-running operations)
+	conn.SetReadDeadline(time.Now().Add(300 * time.Second)) // 5 minutes for LLM processing
 
 	// Keep connection alive
 	for {
@@ -263,12 +360,40 @@ func (o *Orchestrator) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// Extend read deadline after each message
+			conn.SetReadDeadline(time.Now().Add(300 * time.Second))
+
+			// Debug: Log the raw message first
+			o.logger.WithFields(map[string]interface{}{
+				"connID":        connID,
+				"rawMessage":    string(message),
+				"messageLength": len(message),
+				"timestamp":     time.Now().Format(time.RFC3339),
+			}).Info("Raw WebSocket message received")
+
 			// Parse and handle the message
 			var msg WebSocketMessage
 			if err := json.Unmarshal(message, &msg); err != nil {
-				o.logger.WithField("connID", connID).WithField("error", err).Error("Failed to parse WebSocket message")
+				o.logger.WithFields(map[string]interface{}{
+					"connID":        connID,
+					"error":         err,
+					"message":       string(message),
+					"messageLength": len(message),
+					"timestamp":     time.Now().Format(time.RFC3339),
+				}).Error("Failed to parse WebSocket message")
 				continue
 			}
+
+			// Debug: Log the parsed message
+			o.logger.WithFields(map[string]interface{}{
+				"connID":    connID,
+				"event":     msg.Event,
+				"text":      msg.Text,
+				"sessionID": msg.SessionID,
+				"voice":     msg.Voice,
+				"speed":     msg.Speed,
+				"format":    msg.Format,
+			}).Info("Parsed WebSocket message")
 
 			// Handle different event types based on the new event-driven architecture
 			switch msg.Event {
@@ -292,7 +417,12 @@ func (o *Orchestrator) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 					sessionID = fmt.Sprintf("session_%d", time.Now().UnixNano())
 				}
 
-				o.logger.WithField("connID", connID).WithField("sessionID", sessionID).Info("Start listening event received")
+				o.logger.WithFields(map[string]interface{}{
+					"connID":    connID,
+					"sessionID": sessionID,
+					"event":     "start_listening",
+					"timestamp": time.Now().Format(time.RFC3339),
+				}).Info("Start listening event received - Processing pipeline initialization")
 
 				// Store the session ID for this connection
 				o.wsConnections.Store(connID+"_session", sessionID)
@@ -348,8 +478,166 @@ func (o *Orchestrator) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 					conn.WriteJSON(confirmMsg)
 				}
 
+			case "ping":
+				// Handle ping messages for heartbeat
+				o.logger.WithField("connID", connID).Debug("Received ping message")
+				pongMsg := WebSocketMessage{
+					Event:     "pong",
+					Timestamp: time.Now().Format(time.RFC3339),
+				}
+				conn.WriteJSON(pongMsg)
+
+			case "tts_request":
+				// Handle TTS synthesis requests
+				text := msg.Text
+				voice := msg.Voice
+				if voice == "" {
+					voice = "en_US-lessac-high" // Default voice
+				}
+				speed := msg.Speed
+				if speed == 0 {
+					speed = 1.0 // Default speed
+				}
+				format := msg.Format
+				if format == "" {
+					format = "wav" // Default format
+				}
+
+				o.logger.WithFields(map[string]interface{}{
+					"connID": connID,
+					"text":   text,
+					"voice":  voice,
+					"speed":  speed,
+					"format": format,
+				}).Info("TTS request received")
+
+				// Use the AI service to synthesize speech
+				o.logger.WithFields(map[string]interface{}{
+					"text":   text,
+					"voice":  voice,
+					"speed":  speed,
+					"format": format,
+				}).Info("Calling AI service TextToSpeechWithParams")
+				audioData, err := o.aiService.TextToSpeechWithParams(text, voice, speed, format)
+				if err != nil {
+					o.logger.WithField("error", err).Error("Failed to synthesize speech")
+					errorMsg := WebSocketMessage{
+						Event:     "error",
+						Text:      "Failed to synthesize speech",
+						Timestamp: time.Now().Format(time.RFC3339),
+					}
+					conn.WriteJSON(errorMsg)
+					continue
+				}
+
+				o.logger.WithFields(map[string]interface{}{
+					"audioDataSize": len(audioData),
+					"text":          text,
+				}).Info("TTS synthesis successful")
+
+				// Send audio data back to frontend
+				audioMsg := WebSocketMessage{
+					Event:     "tts_audio_chunk",
+					AudioData: base64.StdEncoding.EncodeToString(audioData),
+					Timestamp: time.Now().Format(time.RFC3339),
+				}
+
+				o.logger.WithFields(map[string]interface{}{
+					"audioDataSize": len(audioData),
+					"base64Size":    len(audioMsg.AudioData),
+				}).Info("Sending TTS audio chunk to frontend")
+
+				if err := conn.WriteJSON(audioMsg); err != nil {
+					o.logger.WithField("error", err).Error("Failed to send TTS audio chunk")
+				} else {
+					o.logger.Info("TTS audio chunk sent successfully")
+				}
+
+			case "audio_data":
+				// Handle audio data from frontend
+				sessionID := msg.SessionID
+				audioData := msg.AudioData
+				isFinal := msg.IsFinal
+
+				if sessionID == "" {
+					o.logger.WithField("connID", connID).Error("Missing session_id in audio_data event")
+					continue
+				}
+
+				o.logger.WithFields(map[string]interface{}{
+					"connID":    connID,
+					"sessionID": sessionID,
+					"audioSize": len(audioData),
+					"isFinal":   isFinal,
+					"event":     "audio_data",
+					"timestamp": time.Now().Format(time.RFC3339),
+				}).Info("Received audio_data event from frontend - Starting audio processing pipeline")
+
+				if audioData != "" {
+					// Decode base64 audio data
+					decodedAudio, err := base64.StdEncoding.DecodeString(audioData)
+					if err != nil {
+						o.logger.WithField("error", err).Error("Failed to decode base64 audio data")
+						continue
+					}
+
+					o.logger.WithFields(map[string]interface{}{
+						"sessionID": sessionID,
+						"audioSize": len(decodedAudio),
+					}).Debug("Decoded audio data successfully")
+
+					// If this is the final chunk, process the complete AI pipeline
+					if isFinal {
+						o.logger.WithField("sessionID", sessionID).Info("Processing final audio chunk with complete AI pipeline")
+						go func() {
+							// Convert PCM to WAV format for STT service
+							wavData, err := o.audioDecoder.PCMToWAV(decodedAudio, 16000, 1, 16) // 16kHz mono 16-bit
+							if err != nil {
+								o.logger.WithField("sessionID", sessionID).WithField("error", err).Error("Failed to convert PCM to WAV")
+								return
+							}
+
+							o.logger.WithFields(map[string]interface{}{
+								"sessionID": sessionID,
+								"pcmSize":   len(decodedAudio),
+								"wavSize":   len(wavData),
+							}).Debug("Converted PCM to WAV successfully")
+
+							// Get or create coordinator for this session
+							coordinator := o.getOrCreateCoordinator(sessionID)
+
+							// Process the complete AI pipeline: STT → LLM → TTS
+							if err := coordinator.ProcessPipeline(wavData); err != nil {
+								o.logger.WithField("sessionID", sessionID).WithField("error", err).Error("Failed to process AI pipeline")
+							}
+						}()
+					}
+				}
+
 			default:
-				o.logger.WithField("connID", connID).WithField("event", msg.Event).Warn("Received unhandled event type")
+				// Check if this is a ping message with "type" field instead of "event"
+				if msg.Text == "" && msg.SessionID == "" && msg.Event == "" {
+					// Try to parse as a ping message with "type" field
+					var pingMsg struct {
+						Type string `json:"type"`
+					}
+					if err := json.Unmarshal(message, &pingMsg); err == nil && pingMsg.Type == "ping" {
+						o.logger.WithField("connID", connID).Debug("Received ping message (type format)")
+						pongMsg := WebSocketMessage{
+							Event:     "pong",
+							Timestamp: time.Now().Format(time.RFC3339),
+						}
+						conn.WriteJSON(pongMsg)
+						continue
+					}
+				}
+
+				o.logger.WithFields(map[string]interface{}{
+					"connID":    connID,
+					"event":     msg.Event,
+					"text":      msg.Text,
+					"sessionID": msg.SessionID,
+				}).Warn("Received unhandled event type")
 			}
 		}
 	}
@@ -404,18 +692,178 @@ func (o *Orchestrator) getOrCreateCoordinator(sessionID string) *pipeline.Servic
 
 // handleHealth handles health check requests
 func (o *Orchestrator) handleHealth(w http.ResponseWriter, r *http.Request) {
-	response := map[string]interface{}{
-		"status":     "healthy",
-		"timestamp":  time.Now().UTC().Format(time.RFC3339),
-		"version":    "2.0.0",
-		"service":    "voice-agent-orchestrator",
-		"phase":      "4",
-		"kafka":      "connected",
-		"ai_enabled": true,
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "healthy",
+		"timestamp": time.Now().Format(time.RFC3339),
+		"service":   "orchestrator",
+		"version":   "phase2",
+	})
+}
+
+// handleLogs handles log retrieval requests
+func (o *Orchestrator) handleLogs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get query parameters
+	sessionID := r.URL.Query().Get("session_id")
+	limit := r.URL.Query().Get("limit")
+	service := r.URL.Query().Get("service")
+
+	// Parse limit with default
+	limitInt := 100
+	if limit != "" {
+		if parsed, err := strconv.Atoi(limit); err == nil && parsed > 0 {
+			limitInt = parsed
+		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	// Get logs from different services based on environment
+	env := os.Getenv("ENVIRONMENT")
+	var logs []map[string]interface{}
+
+	if env == "production" {
+		// In production, fetch logs from GKE services
+		logs = o.getProductionLogs(sessionID, limitInt, service)
+	} else {
+		// In development, fetch logs from localhost services
+		logs = o.getDevelopmentLogs(sessionID, limitInt, service)
+	}
+
+	response := map[string]interface{}{
+		"status":      "success",
+		"timestamp":   time.Now().Format(time.RFC3339),
+		"service":     "orchestrator",
+		"environment": env,
+		"logs":        logs,
+		"count":       len(logs),
+		"session_id":  sessionID,
+	}
+
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+}
+
+// getProductionLogs fetches logs from GKE services
+func (o *Orchestrator) getProductionLogs(sessionID string, limit int, service string) []map[string]interface{} {
+	var logs []map[string]interface{}
+
+	// Define service URLs for production
+	services := map[string]string{
+		"orchestrator": "http://orchestrator.voice-agent-phase5.svc.cluster.local:8001",
+		"stt":          "http://stt-service.voice-agent-phase5.svc.cluster.local:8000",
+		"tts":          "http://tts-service.voice-agent-phase5.svc.cluster.local:5001",
+		"media-server": "http://media-server.voice-agent-phase5.svc.cluster.local:8001",
+		"logging":      "http://logging-service.voice-agent-phase5.svc.cluster.local:8080",
+	}
+
+	// If specific service requested, only fetch from that service
+	if service != "" {
+		if serviceURL, exists := services[service]; exists {
+			serviceLogs := o.fetchServiceLogs(serviceURL, sessionID, limit)
+			logs = append(logs, serviceLogs...)
+		}
+	} else {
+		// Fetch from all services
+		for serviceName, serviceURL := range services {
+			serviceLogs := o.fetchServiceLogs(serviceURL, sessionID, limit)
+			// Add service identifier to each log
+			for _, log := range serviceLogs {
+				log["service"] = serviceName
+			}
+			logs = append(logs, serviceLogs...)
+		}
+	}
+
+	return logs
+}
+
+// getDevelopmentLogs fetches logs from localhost services
+func (o *Orchestrator) getDevelopmentLogs(sessionID string, limit int, service string) []map[string]interface{} {
+	var logs []map[string]interface{}
+
+	// Define service URLs for development
+	orchestratorPort := getEnv("ORCHESTRATOR_PORT", "8004")
+	sttPort := getEnv("STT_SERVICE_PORT", "8000")
+	ttsPort := getEnv("TTS_SERVICE_PORT", "5001")
+	mediaServerPort := getEnv("MEDIA_SERVER_PORT", "8001")
+	llmPort := getEnv("LLM_SERVICE_PORT", "8003")
+
+	services := map[string]string{
+		"orchestrator": fmt.Sprintf("http://localhost:%s", orchestratorPort),
+		"stt":          fmt.Sprintf("http://localhost:%s", sttPort),
+		"tts":          fmt.Sprintf("http://localhost:%s", ttsPort),
+		"media-server": fmt.Sprintf("http://localhost:%s", mediaServerPort),
+		"llm":          fmt.Sprintf("http://localhost:%s", llmPort),
+	}
+
+	// If specific service requested, only fetch from that service
+	if service != "" {
+		if serviceURL, exists := services[service]; exists {
+			serviceLogs := o.fetchServiceLogs(serviceURL, sessionID, limit)
+			logs = append(logs, serviceLogs...)
+		}
+	} else {
+		// Fetch from all services
+		for serviceName, serviceURL := range services {
+			serviceLogs := o.fetchServiceLogs(serviceURL, sessionID, limit)
+			// Add service identifier to each log
+			for _, log := range serviceLogs {
+				log["service"] = serviceName
+			}
+			logs = append(logs, serviceLogs...)
+		}
+	}
+
+	return logs
+}
+
+// fetchServiceLogs fetches logs from a specific service
+func (o *Orchestrator) fetchServiceLogs(serviceURL, sessionID string, limit int) []map[string]interface{} {
+	var logs []map[string]interface{}
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	// Build request URL
+	reqURL := fmt.Sprintf("%s/logs", serviceURL)
+	if sessionID != "" {
+		reqURL += fmt.Sprintf("?session_id=%s&limit=%d", sessionID, limit)
+	} else {
+		reqURL += fmt.Sprintf("?limit=%d", limit)
+	}
+
+	// Make request
+	resp, err := client.Get(reqURL)
+	if err != nil {
+		o.logger.WithFields(map[string]interface{}{
+			"service_url": serviceURL,
+			"error":       err,
+		}).Warn("Failed to fetch logs from service")
+		return logs
+	}
+	defer resp.Body.Close()
+
+	// Parse response
+	if resp.StatusCode == http.StatusOK {
+		var response map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&response); err == nil {
+			if logsData, ok := response["logs"]; ok {
+				if logsArray, ok := logsData.([]interface{}); ok {
+					for _, logItem := range logsArray {
+						if logMap, ok := logItem.(map[string]interface{}); ok {
+							logs = append(logs, logMap)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return logs
 }
 
 // broadcastToWebSocket sends a message to WebSocket clients with matching session ID
@@ -499,6 +947,12 @@ func (o *Orchestrator) consumeAudio() {
 	defer o.wg.Done()
 
 	o.logger.Info("Starting audio consumption...")
+
+	// Check if Kafka is enabled
+	if !o.kafkaEnabled {
+		o.logger.Info("Kafka disabled, audio consumption not started")
+		return
+	}
 
 	for {
 		select {
@@ -786,6 +1240,14 @@ func (o *Orchestrator) processAIPipeline(audioSession *session.AudioSession) err
 		Timestamp: time.Now().Format(time.RFC3339),
 	})
 
+	// Reset pipeline state to idle after completion
+	o.stateManager.UpdateSessionState(frontendSessionID, pipeline.PipelineStateIdle)
+
+	o.logger.WithFields(map[string]interface{}{
+		"sessionID": frontendSessionID,
+		"action":    "pipeline_reset",
+	}).Info("Pipeline state reset to idle after completion")
+
 	o.logger.WithFields(map[string]interface{}{
 		"sessionID": mediaSessionID,
 		"audioSize": len(audioData),
@@ -808,9 +1270,9 @@ func (o *Orchestrator) processAIPipeline(audioSession *session.AudioSession) err
 }
 
 func main() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not found, using system environment variables")
+	// Always load env.local for local development
+	if err := godotenv.Load("env.local"); err != nil {
+		log.Printf("Warning: env.local file not found, using system environment variables")
 	}
 
 	// Initialize logger
@@ -820,10 +1282,17 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
-	// Initialize Kafka service
+	// Initialize Kafka service (optional for local development)
 	kafkaService := kafka.NewService(logger)
-	if err := kafkaService.Initialize(); err != nil {
-		logger.WithField("error", err).Fatal("Failed to initialize Kafka service")
+	kafkaEnabled := getEnv("KAFKA_ENABLED", "true")
+
+	if kafkaEnabled == "true" {
+		if err := kafkaService.Initialize(); err != nil {
+			logger.WithField("error", err).Fatal("Failed to initialize Kafka service")
+		}
+		logger.Info("Kafka service initialized successfully")
+	} else {
+		logger.Info("Kafka service disabled for local development")
 	}
 
 	// Initialize AI services
@@ -833,7 +1302,7 @@ func main() {
 	}
 
 	// Create orchestrator
-	orchestrator := NewOrchestrator(kafkaService, aiService, logger)
+	orchestrator := NewOrchestrator(kafkaService, aiService, logger, kafkaEnabled == "true")
 
 	// Initialize pipeline coordinator and session manager for gRPC
 	pipelineCoord := pipeline.NewDefaultCoordinator(orchestrator.stateManager, logger)
@@ -855,53 +1324,6 @@ func main() {
 	}()
 
 	logger.Info("gRPC server started on port 8002")
-
-	// Add gRPC WebSocket handler to the HTTP server
-	http.HandleFunc("/grpc", func(w http.ResponseWriter, r *http.Request) {
-		// Simple WebSocket handler for gRPC bridge
-		upgrader := websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return true // Allow all origins for development
-			},
-		}
-
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			logger.WithField("error", err).Error("Failed to upgrade WebSocket connection")
-			return
-		}
-		defer conn.Close()
-
-		logger.Info("gRPC WebSocket client connected")
-
-		// Handle messages
-		for {
-			var msg map[string]interface{}
-			err := conn.ReadJSON(&msg)
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					logger.WithField("error", err).Error("WebSocket read error")
-				}
-				break
-			}
-
-			// Simple response for now
-			response := map[string]interface{}{
-				"id": msg["id"],
-				"result": map[string]interface{}{
-					"status":  "success",
-					"message": "gRPC WebSocket bridge active",
-				},
-			}
-
-			if err := conn.WriteJSON(response); err != nil {
-				logger.WithField("error", err).Error("Failed to send WebSocket response")
-				break
-			}
-		}
-
-		logger.Info("gRPC WebSocket client disconnected")
-	})
 
 	// Wait for interrupt signal to gracefully shutdown
 	quit := make(chan os.Signal, 1)

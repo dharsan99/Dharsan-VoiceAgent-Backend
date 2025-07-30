@@ -1,4 +1,151 @@
-# Python
+# Global gitignore for Dharsan Voice Agent Project
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+.env.backup
+.env.phase2
+
+# Secrets and credentials
+secrets/
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+service-account*.json
+credentials.json
+firebase-credentials.json
+google-credentials.json
+gcp-credentials.json
+aws-credentials.json
+
+# Audio files (large test files)
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.aac
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+v1_metrics.db
+
+# Large model files
+*.bin
+*.onnx
+*.model
+*.weights
+*.h5
+*.pkl
+*.joblib
+
+# Test files and results
+test-*.html
+test-*.js
+test-*.py
+*-test-results.json
+phase2-backend-test-results.json
+test-results/
+coverage/
+
+# Documentation with sensitive info
+*_DEPLOYMENT*.md
+*_CONFIG*.md
+*_SECRETS*.md
+*_CREDENTIALS*.md
+PRODUCTION_DEPLOYMENT_SECURITY_GUIDE.md
+FRONTEND_DEPLOYMENT*.md
+HTTPS_WSS_IMPLEMENTATION_SUCCESS.md
+
+# Performance: Archived documentation
+docs/archive/
+
+# Kubernetes and deployment files
+k8s/secrets/
+k8s/*-secrets.yaml
+k8s/*-credentials.yaml
+temp-*.yaml
+deploy-*.sh
+*-deployment.sh
+check-deployment.sh
+fix-*.sh
+
+# IDE and editor files
+.vscode/launch.json.bak*
+.vscode/tasks.json.bak*
+.vscode/settings.json.bak*
+.vscode/c_cpp_properties.json
+.vscode/workspace_*.json
+.vscode/*.log
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Cursor specific
+.cursor/
+.cursorrules
+cursor.log
+.cursor-tutor/
+.cursor-chat/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Backup files
+*.backup
+*.bak
+*.old
+*.orig
+
+# Node.js (Frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+.parcel-cache
+.cache
+dist/
+build/
+.vercel/
+
+# Python (Backend)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,68 +167,16 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
-# Virtual environments
-.env
-.venv
-env/
+.venv/
 venv/
 ENV/
-env.bak/
-venv.bak/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Modal
+env/
+.pytest_cache/
+.coverage
+htmlcov/
 .modal/
 
-# Testing
-.coverage
-.pytest_cache/
-htmlcov/
-
 # Local development
-.env.local
-.env.development
-.env.test
-.env.production
-
-# Large model files (over 100MB)
-v2/stt-service/models/ggml-base.en.bin
-v2/tts-service/voices/en_US-lessac-high.onnx
-
-# AI model files (general pattern)
-v2/stt-service/models/*.bin
-v2/tts-service/voices/*.onnx
-
-# Google Cloud service account files
-*.json
-!package.json
-!package-lock.json
-!go.mod
-!go.sum
-!tsconfig*.json
-!vite.config.ts
-!tailwind.config.js
-!postcss.config.js
-!eslint.config.js
-!jest.config.js
-!vercel.json 
+local/
+dev/
+development/ 

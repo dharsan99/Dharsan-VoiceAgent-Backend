@@ -1,0 +1,318 @@
+{
+  "folders": [
+    {
+      "name": "🏠 Root",
+      "path": "."
+    },
+    {
+      "name": "🎨 Frontend App",
+      "path": "../Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend"
+    },
+    {
+      "name": "🎨 Frontend Repository",
+      "path": "../Dharsan-VoiceAgent-Frontend"
+    },
+    {
+      "name": "🔧 Backend V2",
+      "path": "v2"
+    },
+    {
+      "name": "🐹 Orchestrator",
+      "path": "v2/orchestrator"
+    },
+    {
+      "name": "📡 Media Server",
+      "path": "v2/media-server"
+    },
+    {
+      "name": "🎤 STT Service",
+      "path": "v2/stt-service"
+    },
+    {
+      "name": "🔊 TTS Service",
+      "path": "v2/tts-service"
+    },
+    {
+      "name": "🧠 LLM Service",
+      "path": "v2/llm-service"
+    },
+    {
+      "name": "☸️ Kubernetes",
+      "path": "v2/k8s"
+    },
+    {
+      "name": "📚 Documentation",
+      "path": "docs"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/build": true,
+      "**/coverage": true,
+      "**/.git": true,
+      "**/logs": true,
+      "**/venv": true,
+      "**/__pycache__": true,
+      "**/*.pyc": true,
+      // Performance: Exclude large files
+      "**/*.onnx": true,
+      "**/*.bin": true,
+      "**/*.model": true,
+      "**/*.weights": true,
+      "**/*.wav": true,
+      "**/*.mp3": true,
+      "**/media-server": true,
+      "**/orchestrator": true,
+      "**/logging-service": true,
+      "test_*.py": true,
+      "test_*.html": true,
+      "temp-*.yaml": true,
+      "fix_*.py": true,
+      "**/main_*.py": true,
+      "*_SUCCESS.md": true,
+      "*_FIX*.md": true,
+      "*_IMPLEMENTATION*.md": true,
+      "*_ANALYSIS*.md": true,
+      "*_SUMMARY.md": true,
+      "*_GUIDE.md": true,
+      "*_TESTING*.md": true,
+      "*_DEPLOYMENT*.md": true,
+      "*_STATUS*.md": true,
+      "*_CHECKLIST.md": true,
+      "*_LOGS*.md": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/build": true,
+      "**/coverage": true,
+      "**/logs": true,
+      "**/venv": true,
+      "**/__pycache__": true,
+      "**/*.onnx": true,
+      "**/*.bin": true,
+      "**/*.model": true,
+      "**/*.weights": true,
+      "**/*.wav": true,
+      "**/*.mp3": true,
+      "**/media-server": true,
+      "**/orchestrator": true,
+      "**/logging-service": true,
+      "test_*.py": true,
+      "test_*.html": true,
+      "temp-*.yaml": true,
+      "fix_*.py": true,
+      "**/main_*.py": true,
+      "*_SUCCESS.md": true,
+      "*_FIX*.md": true,
+      "*_IMPLEMENTATION*.md": true,
+      "*_ANALYSIS*.md": true,
+      "*_SUMMARY.md": true,
+      "*_GUIDE.md": true,
+      "*_TESTING*.md": true,
+      "*_DEPLOYMENT*.md": true,
+      "*_STATUS*.md": true,
+      "*_CHECKLIST.md": true,
+      "*_LOGS*.md": true
+    },
+    "typescript.preferences.useAliasesForRenames": false,
+    "typescript.suggest.autoImports": false,
+    "typescript.preferences.includePackageJsonAutoImports": "off",
+    "go.toolsManagement.autoUpdate": false,
+    "python.defaultInterpreterPath": "./venv/bin/python",
+    "explorer.fileNesting.enabled": true,
+    // Performance optimizations
+    "editor.minimap.enabled": false,
+    "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "off",
+      "other": "off"
+    },
+    "editor.parameterHints.enabled": false,
+    "editor.semanticHighlighting.enabled": false,
+    "workbench.editor.enablePreview": false,
+    "workbench.iconTheme": null,
+    "extensions.autoUpdate": false,
+    "telemetry.enableTelemetry": false,
+    "explorer.fileNesting.patterns": {
+      "*.go": "$(capture)_test.go",
+      "*.py": "$(capture)_test.py",
+      "*.ts": "$(capture).test.ts, $(capture).spec.ts",
+      "*.tsx": "$(capture).test.tsx, $(capture).spec.tsx",
+      "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml",
+      "Dockerfile": "Dockerfile.*, docker-compose.yml, docker-compose.*.yml",
+      "main.py": "requirements.txt, *.py",
+      "main.go": "go.mod, go.sum, *.go"
+    },
+    // Terminal configurations for auto-startup
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "terminal.integrated.profiles.osx": {
+      "Backend Terminal": {
+        "path": "/bin/zsh",
+        "args": [
+          "-c",
+          "echo '🔧 Backend Terminal - Starting services...' && source venv/bin/activate && echo '✅ Virtual environment activated' && echo '🚀 Starting backend services...' && ./start_backend_services.sh && echo '✅ Backend services started!' && exec zsh"
+        ]
+      },
+      "Frontend Terminal": {
+        "path": "/bin/zsh",
+        "args": [
+          "-c",
+          "echo '🎨 Frontend Terminal - Setting up...' && cd ../Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend && echo '📍 Changed to frontend directory' && nvm use v20 && echo '✅ Node v20 activated' && echo '🚀 Starting frontend dev server...' && npm run dev"
+        ]
+      }
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-vscode.vscode-typescript-next",
+      "golang.go",
+      "ms-python.python",
+      "bradlc.vscode-tailwindcss",
+      "esbenp.prettier-vscode",
+      "dbaeumer.vscode-eslint",
+      "ms-azuretools.vscode-docker",
+      "redhat.vscode-yaml",
+      "ms-kubernetes-tools.vscode-kubernetes-tools",
+      "eamodio.gitlens"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "🎨 Debug Frontend",
+        "type": "chrome",
+        "request": "launch",
+        "url": "http://localhost:3000",
+        "webRoot": "${workspaceFolder:Frontend App}/src"
+      },
+      {
+        "name": "🔧 Debug Orchestrator",
+        "type": "go",
+        "request": "launch",
+        "mode": "debug",
+        "program": "${workspaceFolder:🐹 Orchestrator}/main.go",
+        "env": {
+          "CGO_ENABLED": "0"
+        }
+      },
+      {
+        "name": "📡 Debug Media Server",
+        "type": "go",
+        "request": "launch",
+        "mode": "debug",
+        "program": "${workspaceFolder:📡 Media Server}/cmd/server/main.go"
+      }
+    ],
+    "compounds": [
+      {
+        "name": "🚀 Full Stack Debug",
+        "configurations": [
+          "🔧 Debug Orchestrator",
+          "📡 Debug Media Server",
+          "🎨 Debug Frontend"
+        ]
+      }
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "🔧 Start Backend Services",
+        "type": "shell",
+        "command": "source venv/bin/activate && ./start_backend_services.sh",
+        "options": {
+          "cwd": "${workspaceFolder:🏠 Root}"
+        },
+        "group": "build",
+        "isBackground": true,
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "dedicated",
+          "group": "backend"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "🎨 Start Frontend Dev Server",
+        "type": "shell",
+        "command": "nvm use v20 && npm run dev",
+        "options": {
+          "cwd": "${workspaceFolder:🎨 Frontend App}"
+        },
+        "group": "build",
+        "isBackground": true,
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "dedicated",
+          "group": "frontend"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "🚀 Auto-Start Development Environment",
+        "dependsOrder": "parallel",
+        "dependsOn": [
+          "🔧 Start Backend Services",
+          "🎨 Start Frontend Dev Server"
+        ],
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        }
+      },
+      {
+        "label": "🔧 Open Backend Terminal",
+        "type": "shell",
+        "command": "echo '🔧 Backend Terminal Ready! Run: source venv/bin/activate && ./start_backend_services.sh'",
+        "options": {
+          "cwd": "${workspaceFolder:🏠 Root}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new",
+          "group": "backend"
+        }
+      },
+      {
+        "label": "🎨 Open Frontend Terminal",
+        "type": "shell",
+        "command": "echo '🎨 Frontend Terminal Ready! Run: nvm use v20 && npm run dev'",
+        "options": {
+          "cwd": "${workspaceFolder:🎨 Frontend App}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new",
+          "group": "frontend"
+        }
+      },
+      {
+        "label": "📱 Open Development Terminals",
+        "dependsOrder": "parallel",
+        "dependsOn": [
+          "🔧 Open Backend Terminal",
+          "🎨 Open Frontend Terminal"
+        ],
+        "group": "build"
+      }
+    ]
+  }
+}

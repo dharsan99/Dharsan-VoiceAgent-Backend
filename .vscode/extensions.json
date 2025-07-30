@@ -1,0 +1,40 @@
+{
+  "recommendations": [
+    // Language Support
+    "ms-vscode.vscode-typescript-next",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "golang.go",
+    "ms-python.python",
+    "ms-python.black-formatter",
+    // React & Frontend
+    "ES7+ React/Redux/React-Native snippets",
+    "formulahendry.auto-rename-tag",
+    "christian-kohler.path-intellisense",
+    "zignd.html-css-class-completion",
+    // DevOps & Infrastructure
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml",
+    "ms-kubernetes-tools.vscode-kubernetes-tools",
+    // Git & Version Control
+    "eamodio.gitlens",
+    "github.vscode-pull-request-github",
+    // Utilities
+    "ms-vscode.vscode-json",
+    "yzhang.markdown-all-in-one",
+    "ms-vscode.vscode-proto3",
+    "humao.rest-client",
+    "gruntfuggly.todo-tree",
+    // Theme & UI
+    "pkief.material-icon-theme",
+    "github.github-vscode-theme",
+    // Testing & Debugging
+    "ms-vscode.vscode-jest",
+    "hbenl.vscode-test-explorer"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.vscode-typescript",
+    "hookyqr.beautify"
+  ]
+}

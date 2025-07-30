@@ -1,0 +1,285 @@
+{
+  // File Management & Search
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/coverage": true,
+    "**/.git": true,
+    "**/logs": true,
+    "**/venv": true,
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/go.sum": false,
+    "**/package-lock.json": false,
+    // Performance: Exclude large model files
+    "**/*.onnx": true,
+    "**/*.bin": true,
+    "**/*.model": true,
+    "**/*.weights": true,
+    "**/*.h5": true,
+    "**/*.pkl": true,
+    // Performance: Exclude test audio files
+    "**/*.wav": true,
+    "**/*.mp3": true,
+    "**/*.ogg": true,
+    "**/*.flac": true,
+    // Performance: Exclude compiled binaries
+    "**/media-server": true,
+    "**/orchestrator": true,
+    "**/logging-service": true,
+    "**/media-server-amd64": true,
+    // Performance: Exclude temp and test files
+    "test_*.py": true,
+    "test_*.html": true,
+    "test_*.wav": true,
+    "temp-*.yaml": true,
+    "fix_*.py": true,
+    "**/main_*.py": true,
+    // Performance: Exclude excessive documentation
+    "*_SUCCESS.md": true,
+    "*_FIX*.md": true,
+    "*_IMPLEMENTATION*.md": true,
+    "*_ANALYSIS*.md": true,
+    "*_SUMMARY.md": true,
+    "*_GUIDE.md": true,
+    "*_TESTING*.md": true,
+    "*_DEPLOYMENT*.md": true,
+    "*_STATUS*.md": true,
+    "*_CHECKLIST.md": true,
+    "*_LOGS*.md": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/coverage": true,
+    "**/logs": true,
+    "**/venv": true,
+    "**/__pycache__": true,
+    "**/Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend/node_modules": true,
+    // Performance: Exclude large model files from search
+    "**/*.onnx": true,
+    "**/*.bin": true,
+    "**/*.model": true,
+    "**/*.weights": true,
+    "**/*.h5": true,
+    "**/*.pkl": true,
+    // Performance: Exclude test audio files from search
+    "**/*.wav": true,
+    "**/*.mp3": true,
+    "**/*.ogg": true,
+    "**/*.flac": true,
+    // Performance: Exclude compiled binaries from search
+    "**/media-server": true,
+    "**/orchestrator": true,
+    "**/logging-service": true,
+    "**/media-server-amd64": true,
+    // Performance: Exclude temp and test files from search
+    "test_*.py": true,
+    "test_*.html": true,
+    "test_*.wav": true,
+    "temp-*.yaml": true,
+    "fix_*.py": true,
+    "**/main_*.py": true,
+    // Performance: Exclude excessive documentation from search
+    "*_SUCCESS.md": true,
+    "*_FIX*.md": true,
+    "*_IMPLEMENTATION*.md": true,
+    "*_ANALYSIS*.md": true,
+    "*_SUMMARY.md": true,
+    "*_GUIDE.md": true,
+    "*_TESTING*.md": true,
+    "*_DEPLOYMENT*.md": true,
+    "*_STATUS*.md": true,
+    "*_CHECKLIST.md": true,
+    "*_LOGS*.md": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/logs/**": true,
+    "**/venv/**": true,
+    // Performance: Stop watching large model files
+    "**/*.onnx": true,
+    "**/*.bin": true,
+    "**/*.model": true,
+    "**/*.weights": true,
+    "**/*.h5": true,
+    "**/*.pkl": true,
+    // Performance: Stop watching test audio files
+    "**/*.wav": true,
+    "**/*.mp3": true,
+    "**/*.ogg": true,
+    "**/*.flac": true,
+    // Performance: Stop watching compiled binaries
+    "**/media-server": true,
+    "**/orchestrator": true,
+    "**/logging-service": true,
+    "**/media-server-amd64": true,
+    // Performance: Stop watching temp and test files
+    "test_*": true,
+    "temp-*": true,
+    "fix_*": true,
+    "**/main_*.py": true,
+    // Performance: Stop watching excessive documentation
+    "*_SUCCESS.md": true,
+    "*_FIX*.md": true,
+    "*_IMPLEMENTATION*.md": true,
+    "*_ANALYSIS*.md": true,
+    "*_SUMMARY.md": true,
+    "*_GUIDE.md": true,
+    "*_TESTING*.md": true,
+    "*_DEPLOYMENT*.md": true,
+    "*_STATUS*.md": true,
+    "*_CHECKLIST.md": true,
+    "*_LOGS*.md": true
+  },
+  // Editor Optimizations
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": true,
+  "editor.wordWrap": "on",
+  "editor.minimap.enabled": false,
+  "editor.minimap.maxColumn": 120,
+  "editor.rulers": [
+    80,
+    120
+  ],
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  // Performance: Reduce editor overhead
+  "editor.hover.delay": 1000,
+  "editor.quickSuggestions": {
+    "other": false,
+    "comments": false,
+    "strings": false
+  },
+  "editor.quickSuggestionsDelay": 500,
+  "editor.parameterHints.enabled": false,
+  "editor.suggestOnTriggerCharacters": false,
+  "editor.acceptSuggestionOnEnter": "off",
+  "editor.wordBasedSuggestions": "off",
+  "editor.semanticHighlighting.enabled": false,
+  "editor.bracketPairColorization.enabled": false,
+  // Performance: Reduce file tracking
+  "editor.largeFileOptimizations": true,
+  "editor.maxTokenizationLineLength": 2000,
+  // Language-Specific Settings
+  "typescript.preferences.useAliasesForRenames": false,
+  "typescript.suggest.autoImports": true,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "javascript.suggest.autoImports": true,
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  // Go Language Settings
+  "go.formatTool": "goimports",
+  "go.useLanguageServer": true,
+  "go.toolsManagement.autoUpdate": true,
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.insertSpaces": false,
+    "editor.tabSize": 4
+  },
+  // Python Settings
+  "python.defaultInterpreterPath": "./venv/bin/python",
+  "python.formatting.provider": "black",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4
+  },
+  // React/TypeScript Frontend
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  // JSON & Config Files
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "[dockerfile]": {
+    "editor.defaultFormatter": "ms-azuretools.vscode-docker"
+  },
+  // Git & Version Control
+  "git.autofetch": true,
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "diffEditor.ignoreTrimWhitespace": false,
+  // Terminal
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "terminal.integrated.fontSize": 13,
+  // IntelliSense & Performance
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "typescript.suggest.includeAutomaticOptionalChainCompletions": false,
+  "typescript.inlayHints.parameterNames.enabled": "none",
+  "typescript.inlayHints.parameterTypes.enabled": false,
+  "typescript.inlayHints.variableTypes.enabled": false,
+  "typescript.inlayHints.functionLikeReturnTypes.enabled": false,
+  // Performance: Reduce TypeScript memory usage
+  "typescript.preferences.includeAutomaticOptionalChainCompletions": false,
+  "typescript.preferences.includeCallbackMembers": false,
+  "typescript.surveys.enabled": false,
+  "typescript.disableAutomaticTypeAcquisition": true,
+  // Performance: Limit completions
+  "typescript.suggest.completeFunctionCalls": false,
+  "typescript.suggest.enabled": true,
+  "typescript.suggest.autoImports": false,
+  // File Associations
+  "files.associations": {
+    "*.proto": "proto3",
+    "Dockerfile*": "dockerfile",
+    "*.yaml": "yaml",
+    "*.yml": "yaml",
+    "*.md": "markdown",
+    ".env*": "dotenv"
+  },
+  // Cursor-Specific Optimizations
+  "cursor.chat.alwaysNewSession": false,
+  "cursor.general.enableWinningKeys": true,
+  // Performance: Workspace optimizations
+  "workbench.editor.enablePreview": false,
+  "workbench.editor.enablePreviewFromQuickOpen": false,
+  "workbench.editor.restoreViewState": false,
+  "workbench.iconTheme": null,
+  "workbench.colorTheme": "Default Dark+",
+  "workbench.startupEditor": "none",
+  "workbench.settings.enableNaturalLanguageSearch": false,
+  "workbench.tips.enabled": false,
+  // Performance: Extensions
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
+  // Performance: Telemetry
+  "telemetry.enableTelemetry": false,
+  "telemetry.enableCrashReporter": false,
+  // Project-Specific
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.patterns": {
+    "*.ts": "$(capture).*.ts, $(capture).d.ts",
+    "*.tsx": "$(capture).*.tsx",
+    "*.js": "$(capture).*.js, $(capture).min.js",
+    "*.jsx": "$(capture).*.jsx",
+    "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml",
+    "Dockerfile": "Dockerfile.*",
+    "docker-compose.yml": "docker-compose.*.yml",
+    "README.md": "*.md"
+  }
+}

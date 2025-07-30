@@ -1,0 +1,90 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Frontend (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend/src",
+      "sourceMapPathOverrides": {
+        "webpack:///src/*": "${webRoot}/*"
+      }
+    },
+    {
+      "name": "Debug Frontend (Edge)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend/src"
+    },
+    {
+      "name": "Debug Go Orchestrator",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/v2/orchestrator/main.go",
+      "env": {
+        "CGO_ENABLED": "0"
+      },
+      "args": [],
+      "showLog": true
+    },
+    {
+      "name": "Debug Media Server",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/v2/media-server/cmd/server/main.go",
+      "showLog": true
+    },
+    {
+      "name": "Debug Python STT Service",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/v2/stt-service/main.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/v2/stt-service"
+      }
+    },
+    {
+      "name": "Debug Python TTS Service",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/v2/tts-service/main.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/v2/tts-service"
+      }
+    },
+    {
+      "name": "Debug Python LLM Service",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/v2/llm-service/main.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/v2/llm-service"
+      }
+    },
+    {
+      "name": "Attach to Chrome",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}/Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend/src"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Full Stack",
+      "configurations": [
+        "Debug Go Orchestrator",
+        "Debug Media Server",
+        "Debug Frontend (Chrome)"
+      ],
+      "stopAll": true
+    }
+  ]
+}

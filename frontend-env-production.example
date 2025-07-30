@@ -1,0 +1,51 @@
+# Production Environment Configuration for Frontend  
+# Copy this file to ../Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend/.env.production
+
+# Environment
+VITE_ENVIRONMENT=production
+
+# Orchestrator Service (Replace with your production IPs/domains)
+VITE_ORCHESTRATOR_WS_URL=wss://your-orchestrator-domain.com/ws
+VITE_ORCHESTRATOR_HTTP_URL=https://your-orchestrator-domain.com
+VITE_ORCHESTRATOR_GRPC_URL=wss://your-orchestrator-domain.com/grpc
+VITE_ORCHESTRATOR_PORT=8004
+
+# Media Server (Replace with your production IPs/domains)
+VITE_MEDIA_SERVER_WHIP_URL=https://your-media-server-domain.com/whip
+VITE_MEDIA_SERVER_HTTP_URL=https://your-media-server-domain.com
+VITE_MEDIA_SERVER_PORT=8001
+
+# STT Service (Replace with your production IPs/domains)
+VITE_STT_SERVICE_URL=https://your-stt-service-domain.com
+VITE_STT_SERVICE_PORT=8000
+
+# TTS Service (Replace with your production IPs/domains)
+VITE_TTS_SERVICE_URL=https://your-tts-service-domain.com
+VITE_TTS_SERVICE_PORT=5001
+
+# LLM Service (Replace with your production IPs/domains)
+VITE_LLM_SERVICE_URL=https://your-llm-service-domain.com
+VITE_LLM_SERVICE_PORT=8003
+
+# Audio Configuration
+VITE_SAMPLE_RATE=48000
+VITE_CHANNELS=1
+VITE_BIT_DEPTH=16
+VITE_BUFFER_SIZE=4096
+
+# TURN Server Credentials (Replace with your production credentials)
+VITE_TURN_USERNAME=your_production_turn_username
+VITE_TURN_CREDENTIAL=your_production_turn_credential
+
+# Legacy Support (deprecated - use specific service URLs above)
+VITE_BACKEND_URL=https://your-orchestrator-domain.com
+VITE_WEBSOCKET_URL=wss://your-orchestrator-domain.com/ws
+VITE_WHIP_URL=https://your-media-server-domain.com/whip
+
+# Current GKE Production IPs (temporary until proper domains are set up)
+# VITE_ORCHESTRATOR_WS_URL=ws://34.47.230.178:8004/ws
+# VITE_ORCHESTRATOR_HTTP_URL=http://34.47.230.178:8004
+# VITE_MEDIA_SERVER_WHIP_URL=http://35.244.8.62:8001/whip
+# VITE_STT_SERVICE_URL=http://34.118.229.142:8000
+# VITE_TTS_SERVICE_URL=http://34.118.234.172:5001
+# VITE_LLM_SERVICE_URL=http://34.118.227.19:8003

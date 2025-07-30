@@ -1,0 +1,43 @@
+# Development Environment Configuration for Frontend
+# Copy this file to ../Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend/.env.development
+
+# Environment
+VITE_ENVIRONMENT=development
+
+# Orchestrator Service
+VITE_ORCHESTRATOR_WS_URL=ws://localhost:8004/ws
+VITE_ORCHESTRATOR_HTTP_URL=http://localhost:8004
+VITE_ORCHESTRATOR_GRPC_URL=ws://localhost:8004/grpc
+VITE_ORCHESTRATOR_PORT=8004
+
+# Media Server
+VITE_MEDIA_SERVER_WHIP_URL=http://localhost:8001/whip
+VITE_MEDIA_SERVER_HTTP_URL=http://localhost:8001
+VITE_MEDIA_SERVER_PORT=8001
+
+# STT Service
+VITE_STT_SERVICE_URL=http://localhost:8000
+VITE_STT_SERVICE_PORT=8000
+
+# TTS Service
+VITE_TTS_SERVICE_URL=http://localhost:5001
+VITE_TTS_SERVICE_PORT=5001
+
+# LLM Service
+VITE_LLM_SERVICE_URL=http://localhost:8003
+VITE_LLM_SERVICE_PORT=8003
+
+# Audio Configuration
+VITE_SAMPLE_RATE=48000
+VITE_CHANNELS=1
+VITE_BIT_DEPTH=16
+VITE_BUFFER_SIZE=4096
+
+# TURN Server Credentials (for WebRTC)
+VITE_TURN_USERNAME=your_turn_username
+VITE_TURN_CREDENTIAL=your_turn_credential
+
+# Legacy Support (deprecated - use specific service URLs above)
+VITE_BACKEND_URL=http://localhost:8004
+VITE_WEBSOCKET_URL=ws://localhost:8004/ws
+VITE_WHIP_URL=http://localhost:8001/whip

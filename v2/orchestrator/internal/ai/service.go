@@ -9,6 +9,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"voice-agent-orchestrator/internal/logger"
@@ -105,9 +108,9 @@ func NewService(cfg *config.Config, logger *logger.Logger) *Service {
 // Initialize initializes the AI service with internal service endpoints
 func (s *Service) Initialize() error {
 	// Get service URLs from environment or use defaults
-	s.sttServiceURL = s.getEnvOrDefault("STT_SERVICE_URL", "http://stt-service.voice-agent-phase5.svc.cluster.local:8000")
-	s.ttsServiceURL = s.getEnvOrDefault("TTS_SERVICE_URL", "http://tts-service.voice-agent-phase5.svc.cluster.local:5000")
-	s.llmServiceURL = s.getEnvOrDefault("LLM_SERVICE_URL", "http://llm-service.voice-agent-phase5.svc.cluster.local:11434")
+	s.sttServiceURL = s.getEnvOrDefault("STT_SERVICE_URL", "http://localhost:8000")
+	s.ttsServiceURL = s.getEnvOrDefault("TTS_SERVICE_URL", "http://localhost:5001")
+	s.llmServiceURL = s.getEnvOrDefault("LLM_SERVICE_URL", "http://localhost:8003")
 
 	s.logger.WithFields(map[string]interface{}{
 		"stt_service": s.sttServiceURL,
@@ -449,6 +452,19 @@ func (s *Service) GenerateResponse(prompt string) (string, error) {
 		response := ollamaResp["response"].(string)
 		tokensUsed := int(ollamaResp["eval_count"].(float64))
 
+		// Clean up thinking tags and extra whitespace
+		s.logger.WithFields(map[string]interface{}{
+			"original_response": response,
+			"response_length":   len(response),
+		}).Debug("Before cleaning thinking tags")
+
+		response = s.cleanThinkingTags(response)
+
+		s.logger.WithFields(map[string]interface{}{
+			"cleaned_response": response,
+			"response_length":  len(response),
+		}).Debug("After cleaning thinking tags")
+
 		latency := time.Since(startTime)
 		s.logger.WithFields(map[string]interface{}{
 			"response":    response,
@@ -465,15 +481,16 @@ func (s *Service) GenerateResponse(prompt string) (string, error) {
 
 // TextToSpeech converts text to speech using the internal TTS service with retry logic
 func (s *Service) TextToSpeech(text string) ([]byte, error) {
+	return s.TextToSpeechWithParams(text, "en_US-lessac-high", 1.0, "wav")
+}
+
+func (s *Service) TextToSpeechWithParams(text, voice string, speed float64, format string) ([]byte, error) {
 	startTime := time.Now()
 	maxRetries := 3
 	var lastErr error
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Create request parameters
-		voice := "en_US-lessac-high"
-		speed := 1.0
-		format := "wav"
+		// Use provided parameters
 
 		// Create request using GET endpoint for actual audio data
 		url := fmt.Sprintf("%s/synthesize?text=%s&voice=%s&speed=%.1f&format=%s",
@@ -561,12 +578,71 @@ func (s *Service) TextToSpeech(text string) ([]byte, error) {
 	return nil, lastErr
 }
 
-// getSystemPrompt returns the default system prompt for voice interactions
+// getSystemPrompt returns the system prompt for voice interactions
 func (s *Service) getSystemPrompt() *string {
-	prompt := `You are a helpful voice assistant. Keep your responses concise and natural for voice interaction. 
-	Respond in a conversational tone that sounds natural when spoken aloud. 
-	Keep responses under 100 words and avoid complex formatting.`
-	return &prompt
+	// Try to get system prompt from environment variable first
+	if envPrompt := os.Getenv("SYSTEM_PROMPT"); envPrompt != "" {
+		s.logger.WithField("source", "environment").Debug("Using system prompt from environment")
+		return &envPrompt
+	}
+
+	// Fallback to default prompt
+	defaultPrompt := `You are a helpful voice assistant. Keep your responses concise and natural for voice interaction.
+
+IMPORTANT GUIDELINES:
+1. When users greet you (like "Hello", "Hi", "Can you hear me?"), acknowledge their greeting and confirm you can hear them, then offer help.
+2. When users ask if you can hear them, respond with "Yes, I can hear you perfectly" or similar.
+3. Keep responses under 100 words and conversational.
+4. Avoid repeating the user's question back to them.
+5. Be helpful and offer assistance when appropriate.
+6. Use a friendly, natural tone that sounds good when spoken aloud.
+
+Example responses:
+- User: "Hello, hi, can you hear me?" → "Hello! Yes, I can hear you perfectly. How can I help you today?"
+- User: "Hi there" → "Hi! I'm here and ready to help. What would you like to know?"
+- User: "Can you hear me?" → "Yes, I can hear you clearly. How can I assist you?"`
+
+	s.logger.WithField("source", "default").Debug("Using default system prompt")
+	return &defaultPrompt
+}
+
+// cleanThinkingTags removes thinking tags and cleans up the response
+func (s *Service) cleanThinkingTags(response string) string {
+	// Remove thinking tags and their content (handle both regular and HTML-encoded tags)
+	response = regexp.MustCompile(`(?i)<think>.*?</think>`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)&lt;think&gt;.*?&lt;/think&gt;`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\u003cthink\u003e.*?\u003c/think\u003e`).ReplaceAllString(response, "")
+
+	response = regexp.MustCompile(`(?i)<reasoning>.*?</reasoning>`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)&lt;reasoning&gt;.*?&lt;/reasoning&gt;`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\u003creasoning\u003e.*?\u003c/reasoning\u003e`).ReplaceAllString(response, "")
+
+	response = regexp.MustCompile(`(?i)<thought>.*?</thought>`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)&lt;thought&gt;.*?&lt;/thought&gt;`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\u003cthought\u003e.*?\u003c/thought\u003e`).ReplaceAllString(response, "")
+
+	response = regexp.MustCompile(`(?i)<analysis>.*?</analysis>`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)&lt;analysis&gt;.*?&lt;/analysis&gt;`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\u003canalysis\u003e.*?\u003c/analysis\u003e`).ReplaceAllString(response, "")
+
+	// Remove any remaining thinking-related tags with various encodings
+	response = regexp.MustCompile(`(?i)<[^>]*think[^>]*>.*?</[^>]*>`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)&lt;[^&]*think[^&]*&gt;.*?&lt;/[^&]*&gt;`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\u003c[^\u003e]*think[^\u003e]*\u003e.*?\u003c/[^\u003e]*\u003e`).ReplaceAllString(response, "")
+
+	response = regexp.MustCompile(`(?i)<[^>]*reasoning[^>]*>.*?</[^>]*>`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)&lt;[^&]*reasoning[^&]*&gt;.*?&lt;/[^&]*&gt;`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\u003c[^\u003e]*reasoning[^\u003e]*\u003e.*?\u003c/[^\u003e]*\u003e`).ReplaceAllString(response, "")
+
+	response = regexp.MustCompile(`(?i)<[^>]*thought[^>]*>.*?</[^>]*>`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)&lt;[^&]*thought[^&]*&gt;.*?&lt;/[^&]*&gt;`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\u003c[^\u003e]*thought[^\u003e]*\u003e.*?\u003c/[^\u003e]*\u003e`).ReplaceAllString(response, "")
+
+	// Clean up extra whitespace
+	response = regexp.MustCompile(`\n\s*\n`).ReplaceAllString(response, "\n") // Remove multiple newlines
+	response = strings.TrimSpace(response)                                    // Remove leading/trailing whitespace
+
+	return response
 }
 
 // getEnvOrDefault gets an environment variable with a default value

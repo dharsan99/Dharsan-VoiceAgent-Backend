@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Logs Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background-color: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        .log-entry {
+            background-color: #333;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .error {
+            background-color: #4a1a1a;
+            border: 1px solid #ff4444;
+            color: #ffaaaa;
+        }
+        .success {
+            background-color: #1a4a1a;
+            border: 1px solid #44ff44;
+            color: #aaffaa;
+        }
+        button {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0055aa;
+        }
+        pre {
+            background-color: #000;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Backend Logs Debug Test</h1>
+        
+        <div class="test-section">
+            <h2>Test Backend Logs API</h2>
+            <button onclick="testBackendLogs()">Fetch Backend Logs</button>
+            <button onclick="testCors()">Test CORS</button>
+            <button onclick="clearResults()">Clear Results</button>
+            
+            <div id="results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Raw Response</h2>
+            <pre id="rawResponse">Click "Fetch Backend Logs" to see the raw response...</pre>
+        </div>
+        
+        <div class="test-section">
+            <h2>Parsed Logs</h2>
+            <div id="parsedLogs">Click "Fetch Backend Logs" to see parsed logs...</div>
+        </div>
+    </div>
+
+    <script>
+        const ORCHESTRATOR_URL = 'http://localhost:8004';
+        
+        async function testBackendLogs() {
+            const resultsDiv = document.getElementById('results');
+            const rawResponseDiv = document.getElementById('rawResponse');
+            const parsedLogsDiv = document.getElementById('parsedLogs');
+            
+            resultsDiv.innerHTML = '<div class="log-entry">Fetching logs from orchestrator...</div>';
+            
+            try {
+                console.log('Fetching logs from:', `${ORCHESTRATOR_URL}/logs`);
+                
+                const response = await fetch(`${ORCHESTRATOR_URL}/logs?limit=50`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const rawData = await response.text();
+                console.log('Raw response:', rawData);
+                
+                // Display raw response
+                rawResponseDiv.textContent = rawData;
+                
+                // Try to parse JSON
+                const data = JSON.parse(rawData);
+                console.log('Parsed data:', data);
+                
+                // Validate response format
+                if (!data.status || data.status !== 'success') {
+                    throw new Error('Invalid response format: missing or invalid status');
+                }
+                
+                if (!data.logs || !Array.isArray(data.logs)) {
+                    throw new Error('Invalid response format: missing or invalid logs array');
+                }
+                
+                // Display success
+                resultsDiv.innerHTML = `
+                    <div class="log-entry success">
+                        ✅ Successfully fetched ${data.logs.length} logs from orchestrator
+                        <br>Status: ${data.status}
+                        <br>Count: ${data.count}
+                        <br>Timestamp: ${data.timestamp}
+                    </div>
+                `;
+                
+                // Display parsed logs
+                const logsHtml = data.logs.map((log, index) => {
+                    const timestamp = new Date(log.timestamp).toLocaleTimeString();
+                    const service = log.service.toUpperCase();
+                    const level = log.level.toUpperCase();
+                    
+                    let additionalInfo = '';
+                    if (log.model_size) additionalInfo += ` | Model: ${log.model_size}`;
+                    if (log.voice_size) additionalInfo += ` | Voice: ${log.voice_size}`;
+                    if (log.voice_model) additionalInfo += ` | Voice Model: ${log.voice_model}`;
+                    if (log.model) additionalInfo += ` | Model: ${log.model}`;
+                    
+                    return `
+                        <div class="log-entry">
+                            [${timestamp}] [${service}] [${level}] ${log.message}${additionalInfo}
+                        </div>
+                    `;
+                }).join('');
+                
+                parsedLogsDiv.innerHTML = logsHtml;
+                
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                
+                resultsDiv.innerHTML = `
+                    <div class="log-entry error">
+                        ❌ Error fetching logs: ${error.message}
+                        <br>Stack: ${error.stack}
+                    </div>
+                `;
+                
+                rawResponseDiv.textContent = `Error: ${error.message}`;
+                parsedLogsDiv.innerHTML = '<div class="log-entry error">Failed to parse logs</div>';
+            }
+        }
+        
+        async function testCors() {
+            const resultsDiv = document.getElementById('results');
+            
+            resultsDiv.innerHTML = '<div class="log-entry">Testing CORS...</div>';
+            
+            try {
+                const response = await fetch(`${ORCHESTRATOR_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultsDiv.innerHTML = `
+                        <div class="log-entry success">
+                            ✅ CORS test successful
+                            <br>Health check response: ${JSON.stringify(data)}
+                        </div>
+                    `;
+                } else {
+                    throw new Error(`Health check failed: ${response.status}`);
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="log-entry error">
+                        ❌ CORS test failed: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('rawResponse').textContent = 'Click "Fetch Backend Logs" to see the raw response...';
+            document.getElementById('parsedLogs').innerHTML = 'Click "Fetch Backend Logs" to see parsed logs...';
+        }
+        
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testBackendLogs, 1000);
+        });
+    </script>
+</body>
+</html> 

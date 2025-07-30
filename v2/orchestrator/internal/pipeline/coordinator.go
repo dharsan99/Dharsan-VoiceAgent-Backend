@@ -195,6 +195,15 @@ func (sc *ServiceCoordinator) processLLM(transcript string) error {
 	sc.stateManager.UpdateSessionMetadata(sc.sessionID, "llm_response", cleanResponse)
 	sc.stateManager.UpdateSessionMetadata(sc.sessionID, "llm_processing_time", processingTime)
 
+	// Send LLM response text to frontend
+	llmResponseMsg := map[string]interface{}{
+		"event":      "llm_response_text",
+		"text":       cleanResponse,
+		"session_id": sc.sessionID,
+		"timestamp":  time.Now(),
+	}
+	sc.websocket.BroadcastToSession(sc.sessionID, llmResponseMsg)
+
 	sc.logger.WithFields(map[string]interface{}{
 		"sessionID":      sc.sessionID,
 		"response":       cleanResponse,

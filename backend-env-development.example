@@ -1,0 +1,54 @@
+# Backend Development Environment Configuration
+# Copy this file to .env and update values as needed
+
+# Environment
+ENVIRONMENT=development
+
+# Service Ports
+ORCHESTRATOR_PORT=8004
+MEDIA_SERVER_PORT=8001
+STT_SERVICE_PORT=8000
+TTS_SERVICE_PORT=5001
+LLM_SERVICE_PORT=8003
+
+# Service URLs (for inter-service communication)
+STT_SERVICE_URL=http://localhost:8000
+TTS_SERVICE_URL=http://localhost:5001
+LLM_SERVICE_URL=http://localhost:8003
+MEDIA_SERVER_URL=http://localhost:8001
+
+# Database & Message Queue
+REDIS_URL=redis://localhost:6379
+KAFKA_BROKERS=localhost:9092
+REDPANDA_HOST=localhost
+REDPANDA_PORT=9092
+
+# LLM Configuration
+OLLAMA_BASE_URL=http://localhost:11434
+LLM_MODEL=llama3.2:3b
+SYSTEM_PROMPT="You are a helpful AI assistant."
+
+# STT Configuration
+STT_MODEL=base
+
+# TTS Configuration
+TTS_VOICE=en-US-Neural2-A
+TTS_LANGUAGE=en-US
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000
+
+# Security
+ENABLE_HTTPS=false
+SSL_CERT_PATH=
+SSL_KEY_PATH=
+
+# Google Cloud (if using)
+GOOGLE_APPLICATION_CREDENTIALS=
+GOOGLE_API_KEY=
+
+# Kafka Configuration
+KAFKA_ENABLED=false
+
+# Logging
+LOG_LEVEL=info

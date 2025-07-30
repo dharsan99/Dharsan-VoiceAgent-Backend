@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"voice-agent-media-server/internal/kafka"
@@ -65,6 +66,9 @@ func (s *Server) RegisterRoutes(router *mux.Router) {
 	// Metrics endpoint
 	router.HandleFunc("/metrics", s.handleMetrics).Methods("GET")
 
+	// Logs endpoint
+	router.HandleFunc("/logs", s.handleLogs).Methods("GET")
+
 	// Root endpoint
 	router.HandleFunc("/", s.handleRoot).Methods("GET")
 }
@@ -106,6 +110,37 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		"uptime":      time.Since(s.startTime).String(),
 		"phase":       "2",
 		"ai_enabled":  s.kafkaService != nil,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleLogs handles log retrieval requests
+func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
+	// Get query parameters
+	sessionID := r.URL.Query().Get("session_id")
+	limit := r.URL.Query().Get("limit")
+
+	// Parse limit with default
+	limitInt := 100
+	if limit != "" {
+		if parsed, err := strconv.Atoi(limit); err == nil && parsed > 0 {
+			limitInt = parsed
+		}
+	}
+
+	// For now, return a simple response indicating logs are available
+	// In a full implementation, this would fetch logs from a log storage system
+	response := map[string]interface{}{
+		"status":     "success",
+		"service":    "media-server",
+		"timestamp":  time.Now().UTC().Format(time.RFC3339),
+		"logs":       []map[string]interface{}{}, // Empty for now
+		"count":      0,
+		"session_id": sessionID,
+		"limit":      limitInt,
+		"message":    "Logs endpoint available - logs would be fetched from log storage system",
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -18,48 +18,25 @@ func NewDecoder(logger *logger.Logger) *Decoder {
 	}
 }
 
-// DecodeOpusToPCMSimple decodes Opus data to PCM (simplified approach)
-// Since we can't decode actual Opus without external libraries,
-// we'll assume the data is already in a compatible format or use a fallback
-func (d *Decoder) DecodeOpusToPCMSimple(opusData []byte) ([]byte, error) {
-	// For now, we'll use a simple approach that assumes the data is compatible
-	// In a production system, you'd want proper Opus decoding
-
-	if len(opusData) == 0 {
+// DecodeOpusToPCMSimple handles audio data (now expects raw PCM)
+func (d *Decoder) DecodeOpusToPCMSimple(audioData []byte) ([]byte, error) {
+	if len(audioData) == 0 {
 		return nil, fmt.Errorf("empty audio data")
 	}
 
-	// Create a simple PCM-like output (16-bit mono at 16kHz)
-	// This is a placeholder - in reality you'd decode the actual Opus data
-	outputSize := len(opusData) / 6 // Rough estimate for 48kHz stereo to 16kHz mono
-	if outputSize == 0 {
-		outputSize = 1
-	}
-
-	// Generate simple PCM data (silence with some variation to avoid empty audio)
-	pcmData := make([]byte, outputSize*2) // 16-bit samples
-	for i := 0; i < len(pcmData); i += 2 {
-		// Create a simple waveform (sine wave approximation)
-		value := int16(i % 1000) // Simple variation
-		pcmData[i] = byte(value & 0xFF)
-		pcmData[i+1] = byte((value >> 8) & 0xFF)
-	}
-
+	// For now, assume the data is already in PCM format (16-bit, 16kHz, mono)
+	// The frontend is now sending raw PCM data directly
 	d.logger.WithFields(map[string]interface{}{
-		"opusSize": len(opusData),
-		"pcmSize":  len(pcmData),
-	}).Debug("Converted audio data (simplified)")
+		"inputSize":  len(audioData),
+		"outputSize": len(audioData),
+	}).Debug("Processing raw PCM audio data")
 
-	return pcmData, nil
+	return audioData, nil
 }
 
 // ConvertToMono16kHz converts any audio data to mono 16kHz PCM
 func (d *Decoder) ConvertToMono16kHz(audioData []byte) []byte {
-	// Simple conversion to mono 16kHz
-	// This is a placeholder implementation
-
-	// For now, just return the input data as-is
-	// In a real implementation, you'd do proper resampling and channel conversion
+	// For raw PCM data, just return as-is
 	return audioData
 }
 

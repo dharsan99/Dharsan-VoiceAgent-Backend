@@ -1,0 +1,268 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Frontend: Install Dependencies",
+      "type": "shell",
+      "command": "npm install",
+      "options": {
+        "cwd": "${workspaceFolder}/Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Frontend: Start Dev Server",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "typescript",
+        "source": "ts",
+        "applyTo": "closedDocuments",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}/Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend"
+        ],
+        "pattern": "$tsc",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*Local:.*",
+          "endsPattern": ".*ready in.*"
+        }
+      }
+    },
+    {
+      "label": "Frontend: Build Production",
+      "type": "shell",
+      "command": "npm run build",
+      "options": {
+        "cwd": "${workspaceFolder}/Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Frontend: Run Tests",
+      "type": "shell",
+      "command": "npm test",
+      "options": {
+        "cwd": "${workspaceFolder}/Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend"
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Frontend: Lint",
+      "type": "shell",
+      "command": "npm run lint",
+      "options": {
+        "cwd": "${workspaceFolder}/Dharsan-VoiceAgent-Frontend/dharsan-voiceagent-frontend"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Backend: Build Orchestrator",
+      "type": "shell",
+      "command": "./scripts/build-orchestrator-only.sh",
+      "options": {
+        "cwd": "${workspaceFolder}/v2"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Backend: Start Orchestrator",
+      "type": "shell",
+      "command": "go run main.go",
+      "options": {
+        "cwd": "${workspaceFolder}/v2/orchestrator"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "isBackground": true
+    },
+    {
+      "label": "Backend: Start Media Server",
+      "type": "shell",
+      "command": "go run cmd/server/main.go",
+      "options": {
+        "cwd": "${workspaceFolder}/v2/media-server"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "isBackground": true
+    },
+    {
+      "label": "Backend: Start STT Service",
+      "type": "shell",
+      "command": "python main.py",
+      "options": {
+        "cwd": "${workspaceFolder}/v2/stt-service"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "isBackground": true
+    },
+    {
+      "label": "Backend: Start TTS Service",
+      "type": "shell",
+      "command": "python main.py",
+      "options": {
+        "cwd": "${workspaceFolder}/v2/tts-service"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "isBackground": true
+    },
+    {
+      "label": "Backend: Start LLM Service",
+      "type": "shell",
+      "command": "python main.py",
+      "options": {
+        "cwd": "${workspaceFolder}/v2/llm-service"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "isBackground": true
+    },
+    {
+      "label": "Docker: Build All Services",
+      "type": "shell",
+      "command": "docker-compose build",
+      "options": {
+        "cwd": "${workspaceFolder}/v2"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Docker: Start All Services",
+      "type": "shell",
+      "command": "docker-compose up",
+      "options": {
+        "cwd": "${workspaceFolder}/v2"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated"
+      },
+      "isBackground": true
+    },
+    {
+      "label": "K8s: Apply Manifests",
+      "type": "shell",
+      "command": "kubectl apply -f k8s/phase5/manifests/",
+      "options": {
+        "cwd": "${workspaceFolder}/v2"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Test: Backend Health Check",
+      "type": "shell",
+      "command": "./check_backend_status.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Full Stack: Start Development",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Frontend: Start Dev Server",
+        "Backend: Start Orchestrator",
+        "Backend: Start Media Server"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    }
+  ]
+}
