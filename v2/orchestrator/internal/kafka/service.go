@@ -52,7 +52,7 @@ func (s *Service) Initialize() error {
 	redpandaPort := os.Getenv("REDPANDA_PORT")
 
 	if redpandaHost == "" {
-		redpandaHost = "redpanda.voice-agent-phase5.svc.cluster.local"
+		redpandaHost = "redpanda.voice-agent-fresh.svc.cluster.local"
 	}
 	if redpandaPort == "" {
 		redpandaPort = "9092"

@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redpanda
+  namespace: voice-agent-fresh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redpanda
+  template:
+    metadata:
+      labels:
+        app: redpanda
+    spec:
+      containers:
+      - name: redpanda
+        image: redpandadata/redpanda:latest
+        ports:
+        - containerPort: 9092
+        - containerPort: 9644
+        command:
+        - /usr/bin/rpk
+        - redpanda
+        - start
+        - --smp
+        - "1"
+        - --memory
+        - "256M"
+        - --reserve-memory
+        - "0M"
+        - --node-id
+        - "0"
+        - --kafka-addr
+        - "0.0.0.0:9092"
+        - --advertise-kafka-addr
+        - "redpanda:9092"
+        - --pandaproxy-addr
+        - "0.0.0.0:8082"
+        - --advertise-pandaproxy-addr
+        - "redpanda:8082"
+        - --schema-registry-addr
+        - "0.0.0.0:8081"
+        - --rpc-addr
+        - "0.0.0.0:33145"
+        - --advertise-rpc-addr
+        - "redpanda:33145"
+        - --mode
+        - "dev-container"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda
+  namespace: voice-agent-fresh
+spec:
+  selector:
+    app: redpanda
+  ports:
+  - name: kafka
+    port: 9092
+    targetPort: 9092
+  - name: admin
+    port: 9644
+    targetPort: 9644

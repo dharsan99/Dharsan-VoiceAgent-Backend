@@ -20,9 +20,10 @@ RUN wget https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_l
     tar -xzvf piper_linux_x86_64.tar.gz && \
     rm piper_linux_x86_64.tar.gz
 
-# Download high-quality voice model (lessac)
-RUN wget https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx && \
-    wget https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx.json
+# Download high-quality voice model (lessac) to correct directory
+RUN mkdir -p voices && \
+    wget https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx -O voices/en_US-lessac-high.onnx && \
+    wget https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/high/en_US-lessac-high.onnx.json -O voices/en_US-lessac-high.onnx.json
 
 # Copy Python application
 COPY requirements.txt .

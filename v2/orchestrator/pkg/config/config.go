@@ -24,7 +24,7 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		// Kafka configuration
-		KafkaBrokers: getEnv("KAFKA_BROKERS", "redpanda.voice-agent-phase5.svc.cluster.local:9092"),
+		KafkaBrokers: getEnv("KAFKA_BROKERS", "redpanda.voice-agent-fresh.svc.cluster.local:9092"),
 
 		// Google Cloud configuration
 		GoogleCredentialsPath: getEnv("GOOGLE_APPLICATION_CREDENTIALS", ""),

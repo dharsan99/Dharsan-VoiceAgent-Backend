@@ -33,11 +33,18 @@ func NewService(logger *logger.Logger) *Service {
 // Initialize sets up the Kafka producer and consumer
 func (s *Service) Initialize() error {
 	// Get Kafka configuration from environment variables
+	// Support both REDPANDA_HOST and KAFKA_BROKER_HOST for backward compatibility
 	redpandaHost := os.Getenv("REDPANDA_HOST")
+	if redpandaHost == "" {
+		redpandaHost = os.Getenv("KAFKA_BROKER_HOST")
+	}
 	redpandaPort := os.Getenv("REDPANDA_PORT")
+	if redpandaPort == "" {
+		redpandaPort = os.Getenv("KAFKA_BROKER_PORT")
+	}
 
 	if redpandaHost == "" {
-		redpandaHost = "redpanda.voice-agent-phase5.svc.cluster.local"
+		redpandaHost = "redpanda.voice-agent-fresh.svc.cluster.local"
 	}
 	if redpandaPort == "" {
 		redpandaPort = "9092"

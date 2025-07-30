@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-service
+  namespace: voice-agent-fresh
+  labels:
+    app: llm-service
+    version: v2.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-service
+  template:
+    metadata:
+      labels:
+        app: llm-service
+    spec:
+      containers:
+      - name: llm-service
+        image: us-central1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/llm-service:v2.0.2
+        ports:
+        - containerPort: 11434
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 11434
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 11434
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: ollama-storage
+          mountPath: /root/.ollama
+      volumes:
+      - name: ollama-storage
+        persistentVolumeClaim:
+          claimName: ollama-model-storage-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-service
+  namespace: voice-agent-fresh
+spec:
+  selector:
+    app: llm-service
+  ports:
+  - port: 11434
+    targetPort: 11434
+  type: ClusterIP

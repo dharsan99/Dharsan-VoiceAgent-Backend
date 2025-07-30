@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stt-service
+  namespace: voice-agent-fresh
+  labels:
+    app: stt-service
+    version: v2.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stt-service
+  template:
+    metadata:
+      labels:
+        app: stt-service
+    spec:
+      containers:
+      - name: stt-service
+        image: us-central1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/stt-service:v2.0.0
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: stt-model-storage-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stt-service
+  namespace: voice-agent-fresh
+spec:
+  selector:
+    app: stt-service
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP

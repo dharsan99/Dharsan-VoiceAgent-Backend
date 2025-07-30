@@ -447,8 +447,13 @@ func (o *Orchestrator) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				sessionID := msg.SessionID
 				finalTranscript := msg.FinalTranscript
 
+				// Handle backward compatibility - frontend might send 'text' instead of 'final_transcript'
+				if finalTranscript == "" && msg.Text != "" {
+					finalTranscript = msg.Text
+				}
+
 				if sessionID == "" || finalTranscript == "" {
-					o.logger.WithField("connID", connID).Error("Missing session_id or final_transcript in trigger_llm event")
+					o.logger.WithField("connID", connID).WithField("sessionID", sessionID).WithField("finalTranscript", finalTranscript).WithField("text", msg.Text).Error("Missing session_id or final_transcript in trigger_llm event")
 					continue
 				}
 
@@ -751,11 +756,11 @@ func (o *Orchestrator) getProductionLogs(sessionID string, limit int, service st
 
 	// Define service URLs for production
 	services := map[string]string{
-		"orchestrator": "http://orchestrator.voice-agent-phase5.svc.cluster.local:8001",
-		"stt":          "http://stt-service.voice-agent-phase5.svc.cluster.local:8000",
-		"tts":          "http://tts-service.voice-agent-phase5.svc.cluster.local:5001",
-		"media-server": "http://media-server.voice-agent-phase5.svc.cluster.local:8001",
-		"logging":      "http://logging-service.voice-agent-phase5.svc.cluster.local:8080",
+		"orchestrator": "http://orchestrator.voice-agent-fresh.svc.cluster.local:8001",
+		"stt":          "http://stt-service.voice-agent-fresh.svc.cluster.local:8000",
+		"tts":          "http://tts-service.voice-agent-fresh.svc.cluster.local:5000",
+		"media-server": "http://media-server.voice-agent-fresh.svc.cluster.local:8001",
+		// "logging":      "http://logging-service.voice-agent-fresh.svc.cluster.local:8080", // Service not deployed
 	}
 
 	// If specific service requested, only fetch from that service
@@ -783,19 +788,13 @@ func (o *Orchestrator) getProductionLogs(sessionID string, limit int, service st
 func (o *Orchestrator) getDevelopmentLogs(sessionID string, limit int, service string) []map[string]interface{} {
 	var logs []map[string]interface{}
 
-	// Define service URLs for development
-	orchestratorPort := getEnv("ORCHESTRATOR_PORT", "8004")
-	sttPort := getEnv("STT_SERVICE_PORT", "8000")
-	ttsPort := getEnv("TTS_SERVICE_PORT", "5001")
-	mediaServerPort := getEnv("MEDIA_SERVER_PORT", "8001")
-	llmPort := getEnv("LLM_SERVICE_PORT", "8003")
-
+	// Define service URLs for development - use cluster service URLs
 	services := map[string]string{
-		"orchestrator": fmt.Sprintf("http://localhost:%s", orchestratorPort),
-		"stt":          fmt.Sprintf("http://localhost:%s", sttPort),
-		"tts":          fmt.Sprintf("http://localhost:%s", ttsPort),
-		"media-server": fmt.Sprintf("http://localhost:%s", mediaServerPort),
-		"llm":          fmt.Sprintf("http://localhost:%s", llmPort),
+		"orchestrator": "http://orchestrator.voice-agent-fresh.svc.cluster.local:8001",
+		"stt":          "http://stt-service.voice-agent-fresh.svc.cluster.local:8000",
+		"tts":          "http://tts-service.voice-agent-fresh.svc.cluster.local:5000",
+		"media-server": "http://media-server.voice-agent-fresh.svc.cluster.local:8001",
+		"llm":          "http://llm-service.voice-agent-fresh.svc.cluster.local:11434",
 	}
 
 	// If specific service requested, only fetch from that service

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tts-service
+  namespace: voice-agent-fresh
+  labels:
+    app: tts-service
+    version: v2.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tts-service
+  template:
+    metadata:
+      labels:
+        app: tts-service
+    spec:
+      containers:
+      - name: tts-service
+        image: us-central1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/tts-service:v2.0.1
+        ports:
+        - containerPort: 5001
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: tts-model-storage-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tts-service
+  namespace: voice-agent-fresh
+spec:
+  selector:
+    app: tts-service
+  ports:
+  - port: 5000
+    targetPort: 5001
+  type: ClusterIP

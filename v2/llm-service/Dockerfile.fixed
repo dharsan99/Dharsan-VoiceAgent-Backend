@@ -1,0 +1,53 @@
+FROM ollama/ollama:latest
+
+# Install Python and dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-full \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install Python dependencies in virtual environment
+COPY requirements.txt .
+
+# Create virtual environment and install packages
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create startup script that ensures ollama is available
+RUN cat > start.sh << 'SCRIPT'
+#!/bin/bash
+# Activate virtual environment
+source /opt/venv/bin/activate
+
+# Start Ollama server in background
+ollama serve &
+SERVER_PID=$!
+
+# Wait for server to be ready
+sleep 10
+
+# Pull model if not exists
+if ! ollama list | grep -q "qwen3:0.6b"; then
+    echo "Pulling qwen3:0.6b model..."
+    ollama pull qwen3:0.6b
+fi
+
+# Start Python service
+exec python main.py
+SCRIPT
+
+RUN chmod +x start.sh
+
+EXPOSE 11434
+
+ENTRYPOINT ["/bin/bash", "-c", "./start.sh"]
