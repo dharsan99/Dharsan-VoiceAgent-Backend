@@ -5,10 +5,10 @@ set -e
 
 # Configuration
 PROJECT_ID="speechtotext-466820"
-REGION="asia-south1"
+REGION="us-central1"
 REGISTRY_PATH="${REGION}-docker.pkg.dev/${PROJECT_ID}/voice-agent-repo"
 IMAGE_NAME="orchestrator"
-VERSION="v1.0.28"
+VERSION="v2.0.1"
 
 echo "🚀 Building orchestrator..."
 

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator-external-cloudflare
+  namespace: voice-agent-fresh
+  annotations:
+    service.beta.kubernetes.io/google-load-balancer-type: "External"
+    service.beta.kubernetes.io/google-load-balancer-backend-config: '{"default": {"healthCheck": {"checkIntervalSec": 30, "timeoutSec": 5, "healthyThreshold": 1, "unhealthyThreshold": 3, "type": "HTTP", "requestPath": "/health"}}}'
+spec:
+  selector:
+    app: orchestrator
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8001
+    protocol: TCP
+  type: LoadBalancer 

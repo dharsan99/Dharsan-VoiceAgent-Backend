@@ -285,8 +285,11 @@ async def transcribe_audio(
     if hasattr(file, 'headers') and 'x-session-id' in file.headers:
         session_id = file.headers['x-session-id']
     
+    # Read audio data first
+    audio_data = await file.read()
+    
     add_service_log("info", "Transcription request received", session_id, 
-                   file_size=len(await file.read()) if hasattr(file, 'read') else 0,
+                   file_size=len(audio_data),
                    language=language, model=model_name)
     
     try:
@@ -302,8 +305,7 @@ async def transcribe_audio(
                 add_service_log("error", "STT model failed to load", session_id, model=model_name)
                 raise HTTPException(status_code=503, detail="STT model failed to load")
         
-        # Read audio data
-        audio_data = await file.read()
+        # Check if audio data is empty
         if not audio_data:
             add_service_log("error", "Empty audio file", session_id)
             raise HTTPException(status_code=400, detail="Empty audio file")

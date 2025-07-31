@@ -109,7 +109,7 @@ func NewService(cfg *config.Config, logger *logger.Logger) *Service {
 func (s *Service) Initialize() error {
 	// Get service URLs from environment or use defaults
 	s.sttServiceURL = s.getEnvOrDefault("STT_SERVICE_URL", "http://localhost:8000")
-	s.ttsServiceURL = s.getEnvOrDefault("TTS_SERVICE_URL", "http://localhost:5001")
+	s.ttsServiceURL = s.getEnvOrDefault("TTS_SERVICE_URL", "http://localhost:5000")
 	s.llmServiceURL = s.getEnvOrDefault("LLM_SERVICE_URL", "http://localhost:8003")
 
 	s.logger.WithFields(map[string]interface{}{
@@ -611,32 +611,33 @@ func (s *Service) cleanThinkingTags(response string) string {
 	// Remove thinking tags and their content (handle both regular and HTML-encoded tags)
 	response = regexp.MustCompile(`(?i)<think>.*?</think>`).ReplaceAllString(response, "")
 	response = regexp.MustCompile(`(?i)&lt;think&gt;.*?&lt;/think&gt;`).ReplaceAllString(response, "")
-	response = regexp.MustCompile(`(?i)\u003cthink\u003e.*?\u003c/think\u003e`).ReplaceAllString(response, "")
+	// Remove Unicode-encoded tags (using proper Unicode escape sequences)
+	response = regexp.MustCompile(`(?i)\x3cthink\x3e.*?\x3c/think\x3e`).ReplaceAllString(response, "")
 
 	response = regexp.MustCompile(`(?i)<reasoning>.*?</reasoning>`).ReplaceAllString(response, "")
 	response = regexp.MustCompile(`(?i)&lt;reasoning&gt;.*?&lt;/reasoning&gt;`).ReplaceAllString(response, "")
-	response = regexp.MustCompile(`(?i)\u003creasoning\u003e.*?\u003c/reasoning\u003e`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\x3creasoning\x3e.*?\x3c/reasoning\x3e`).ReplaceAllString(response, "")
 
 	response = regexp.MustCompile(`(?i)<thought>.*?</thought>`).ReplaceAllString(response, "")
 	response = regexp.MustCompile(`(?i)&lt;thought&gt;.*?&lt;/thought&gt;`).ReplaceAllString(response, "")
-	response = regexp.MustCompile(`(?i)\u003cthought\u003e.*?\u003c/thought\u003e`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\x3cthought\x3e.*?\x3c/thought\x3e`).ReplaceAllString(response, "")
 
 	response = regexp.MustCompile(`(?i)<analysis>.*?</analysis>`).ReplaceAllString(response, "")
 	response = regexp.MustCompile(`(?i)&lt;analysis&gt;.*?&lt;/analysis&gt;`).ReplaceAllString(response, "")
-	response = regexp.MustCompile(`(?i)\u003canalysis\u003e.*?\u003c/analysis\u003e`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\x3canalysis\x3e.*?\x3c/analysis\x3e`).ReplaceAllString(response, "")
 
 	// Remove any remaining thinking-related tags with various encodings
 	response = regexp.MustCompile(`(?i)<[^>]*think[^>]*>.*?</[^>]*>`).ReplaceAllString(response, "")
 	response = regexp.MustCompile(`(?i)&lt;[^&]*think[^&]*&gt;.*?&lt;/[^&]*&gt;`).ReplaceAllString(response, "")
-	response = regexp.MustCompile(`(?i)\u003c[^\u003e]*think[^\u003e]*\u003e.*?\u003c/[^\u003e]*\u003e`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\x3c[^\x3e]*think[^\x3e]*\x3e.*?\x3c/[^\x3e]*\x3e`).ReplaceAllString(response, "")
 
 	response = regexp.MustCompile(`(?i)<[^>]*reasoning[^>]*>.*?</[^>]*>`).ReplaceAllString(response, "")
 	response = regexp.MustCompile(`(?i)&lt;[^&]*reasoning[^&]*&gt;.*?&lt;/[^&]*&gt;`).ReplaceAllString(response, "")
-	response = regexp.MustCompile(`(?i)\u003c[^\u003e]*reasoning[^\u003e]*\u003e.*?\u003c/[^\u003e]*\u003e`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\x3c[^\x3e]*reasoning[^\x3e]*\x3e.*?\x3c/[^\x3e]*\x3e`).ReplaceAllString(response, "")
 
 	response = regexp.MustCompile(`(?i)<[^>]*thought[^>]*>.*?</[^>]*>`).ReplaceAllString(response, "")
 	response = regexp.MustCompile(`(?i)&lt;[^&]*thought[^&]*&gt;.*?&lt;/[^&]*&gt;`).ReplaceAllString(response, "")
-	response = regexp.MustCompile(`(?i)\u003c[^\u003e]*thought[^\u003e]*\u003e.*?\u003c/[^\u003e]*\u003e`).ReplaceAllString(response, "")
+	response = regexp.MustCompile(`(?i)\x3c[^\x3e]*thought[^\x3e]*\x3e.*?\x3c/[^\x3e]*\x3e`).ReplaceAllString(response, "")
 
 	// Clean up extra whitespace
 	response = regexp.MustCompile(`\n\s*\n`).ReplaceAllString(response, "\n") // Remove multiple newlines
@@ -647,7 +648,8 @@ func (s *Service) cleanThinkingTags(response string) string {
 
 // getEnvOrDefault gets an environment variable with a default value
 func (s *Service) getEnvOrDefault(key, defaultValue string) string {
-	// In a real implementation, you would get this from environment
-	// For now, we'll use the default values
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
 	return defaultValue
 }

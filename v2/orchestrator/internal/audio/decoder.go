@@ -18,25 +18,27 @@ func NewDecoder(logger *logger.Logger) *Decoder {
 	}
 }
 
-// DecodeOpusToPCMSimple handles audio data (now expects raw PCM)
+// DecodeOpusToPCMSimple handles audio data (now expects Int16 PCM from frontend)
 func (d *Decoder) DecodeOpusToPCMSimple(audioData []byte) ([]byte, error) {
 	if len(audioData) == 0 {
 		return nil, fmt.Errorf("empty audio data")
 	}
 
-	// For now, assume the data is already in PCM format (16-bit, 16kHz, mono)
-	// The frontend is now sending raw PCM data directly
+	// The frontend is now sending Int16 PCM data (16-bit, 16kHz, mono)
+	// This data is already in the correct format for STT processing
 	d.logger.WithFields(map[string]interface{}{
 		"inputSize":  len(audioData),
 		"outputSize": len(audioData),
-	}).Debug("Processing raw PCM audio data")
+		"format":     "Int16 PCM",
+	}).Debug("Processing Int16 PCM audio data from frontend")
 
 	return audioData, nil
 }
 
 // ConvertToMono16kHz converts any audio data to mono 16kHz PCM
 func (d *Decoder) ConvertToMono16kHz(audioData []byte) []byte {
-	// For raw PCM data, just return as-is
+	// For Int16 PCM data from frontend, just return as-is
+	// Frontend already provides 16kHz mono audio
 	return audioData
 }
 

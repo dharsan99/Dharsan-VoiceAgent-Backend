@@ -123,6 +123,11 @@ func (o *Orchestrator) BroadcastToSession(sessionID string, message interface{})
 		return
 	}
 
+	o.logger.WithFields(map[string]interface{}{
+		"sessionID": sessionID,
+		"messageType": fmt.Sprintf("%T", message),
+	}).Info("BroadcastToSession called")
+
 	// Broadcast to all connections for this session
 	o.wsConnections.Range(func(key, value interface{}) bool {
 		keyStr := key.(string)
@@ -147,10 +152,21 @@ func (o *Orchestrator) BroadcastToSession(sessionID string, message interface{})
 						o.logger.WithFields(map[string]interface{}{
 							"sessionID": sessionID,
 							"connID":    keyStr,
-						}).Debug("WebSocket message sent successfully")
+						}).Info("WebSocket message sent successfully")
 					}
 				}
+			} else {
+				o.logger.WithFields(map[string]interface{}{
+					"sessionID": sessionID,
+					"storedSessionID": storedSessionID,
+					"connID": keyStr,
+				}).Debug("Session ID mismatch")
 			}
+		} else {
+			o.logger.WithFields(map[string]interface{}{
+				"sessionID": sessionID,
+				"connID": keyStr,
+			}).Debug("No session mapping found for connection")
 		}
 		return true
 	})
@@ -398,16 +414,56 @@ func (o *Orchestrator) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			// Handle different event types based on the new event-driven architecture
 			switch msg.Event {
 			case "greeting_request":
-				// Send the automatic greeting response
+				// Send the automatic greeting response using TTS
+				greetingText := "how may i help you today"
+
+				o.logger.WithFields(map[string]interface{}{
+					"connID": connID,
+					"text":   greetingText,
+				}).Info("Generating greeting audio using TTS")
+
+				// Use the AI service to synthesize greeting speech
+				audioData, err := o.aiService.TextToSpeechWithParams(greetingText, "en_US-lessac-high", 1.0, "wav")
+				if err != nil {
+					o.logger.WithField("error", err).Error("Failed to synthesize greeting speech")
+					// Fallback to text greeting if TTS fails
+					greetingMsg := WebSocketMessage{
+						Event:     "greeting",
+						Text:      greetingText,
+						Timestamp: time.Now().Format(time.RFC3339),
+					}
+					if err := conn.WriteJSON(greetingMsg); err != nil {
+						o.logger.WithField("connID", connID).WithField("error", err).Error("Failed to send text greeting fallback")
+					}
+					continue
+				}
+
+				o.logger.WithFields(map[string]interface{}{
+					"connID":        connID,
+					"audioDataSize": len(audioData),
+					"text":          greetingText,
+				}).Info("Greeting TTS synthesis successful")
+
+				// Send audio greeting to frontend
+				audioDataBase64 := base64.StdEncoding.EncodeToString(audioData)
 				greetingMsg := WebSocketMessage{
-					Event:     "greeting",
-					Text:      "how may i help you today",
+					Event:     "greeting_audio",
+					AudioData: audioDataBase64,
+					Text:      greetingText, // Keep text for display purposes
 					Timestamp: time.Now().Format(time.RFC3339),
 				}
+
+				o.logger.WithFields(map[string]interface{}{
+					"connID":              connID,
+					"audioDataSize":       len(audioData),
+					"audioDataBase64Size": len(audioDataBase64),
+					"hasAudioData":        len(audioData) > 0,
+				}).Info("Preparing to send greeting audio")
+
 				if err := conn.WriteJSON(greetingMsg); err != nil {
-					o.logger.WithField("connID", connID).WithField("error", err).Error("Failed to send greeting")
+					o.logger.WithField("connID", connID).WithField("error", err).Error("Failed to send greeting audio")
 				} else {
-					o.logger.WithField("connID", connID).Info("Sent greeting message")
+					o.logger.WithField("connID", connID).Info("Sent greeting audio successfully")
 				}
 
 			case "start_listening":
@@ -569,6 +625,13 @@ func (o *Orchestrator) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
+				// Store the session ID mapping for this connection (for BroadcastToSession)
+				o.wsConnections.Store(connID+"_session", sessionID)
+				o.logger.WithFields(map[string]interface{}{
+					"connID":    connID,
+					"sessionID": sessionID,
+				}).Info("Stored session ID mapping for WebSocket connection")
+
 				o.logger.WithFields(map[string]interface{}{
 					"connID":    connID,
 					"sessionID": sessionID,
@@ -576,9 +639,17 @@ func (o *Orchestrator) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 					"isFinal":   isFinal,
 					"event":     "audio_data",
 					"timestamp": time.Now().Format(time.RFC3339),
-				}).Info("Received audio_data event from frontend - Starting audio processing pipeline")
+				}).Info("Received audio_data event from frontend")
 
-				if audioData != "" {
+				// Only process when is_final is true (complete audio from frontend)
+				if isFinal {
+					o.logger.WithField("sessionID", sessionID).Info("Processing final audio with complete AI pipeline")
+
+					if audioData == "" {
+						o.logger.WithField("sessionID", sessionID).Warn("Empty audio data received in final message")
+						continue
+					}
+
 					// Decode base64 audio data
 					decodedAudio, err := base64.StdEncoding.DecodeString(audioData)
 					if err != nil {
@@ -589,34 +660,35 @@ func (o *Orchestrator) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 					o.logger.WithFields(map[string]interface{}{
 						"sessionID": sessionID,
 						"audioSize": len(decodedAudio),
-					}).Debug("Decoded audio data successfully")
+					}).Info("Decoded final audio data successfully")
 
-					// If this is the final chunk, process the complete AI pipeline
-					if isFinal {
-						o.logger.WithField("sessionID", sessionID).Info("Processing final audio chunk with complete AI pipeline")
-						go func() {
-							// Convert PCM to WAV format for STT service
-							wavData, err := o.audioDecoder.PCMToWAV(decodedAudio, 16000, 1, 16) // 16kHz mono 16-bit
-							if err != nil {
-								o.logger.WithField("sessionID", sessionID).WithField("error", err).Error("Failed to convert PCM to WAV")
-								return
-							}
-
-							o.logger.WithFields(map[string]interface{}{
-								"sessionID": sessionID,
-								"pcmSize":   len(decodedAudio),
-								"wavSize":   len(wavData),
-							}).Debug("Converted PCM to WAV successfully")
-
-							// Get or create coordinator for this session
-							coordinator := o.getOrCreateCoordinator(sessionID)
-
-							// Process the complete AI pipeline: STT → LLM → TTS
-							if err := coordinator.ProcessPipeline(wavData); err != nil {
-								o.logger.WithField("sessionID", sessionID).WithField("error", err).Error("Failed to process AI pipeline")
-							}
-						}()
+					// Convert PCM to WAV format for STT service
+					wavData, err := o.audioDecoder.PCMToWAV(decodedAudio, 16000, 1, 16) // 16kHz mono 16-bit
+					if err != nil {
+						o.logger.WithField("sessionID", sessionID).WithField("error", err).Error("Failed to convert PCM to WAV")
+						continue
 					}
+
+					o.logger.WithFields(map[string]interface{}{
+						"sessionID":   sessionID,
+						"wavDataSize": len(wavData),
+					}).Info("WAV data size after conversion")
+
+					// Get or create coordinator for this session
+					coordinator := o.getOrCreateCoordinator(sessionID)
+
+					o.logger.WithFields(map[string]interface{}{
+						"sessionID":   sessionID,
+						"wavDataSize": len(wavData),
+					}).Info("Sending WAV data to STT service")
+
+					// Process the complete AI pipeline: STT → LLM → TTS
+					if err := coordinator.ProcessPipeline(wavData); err != nil {
+						o.logger.WithField("sessionID", sessionID).WithField("error", err).Error("Failed to process AI pipeline")
+					}
+				} else {
+					// Non-final messages are ignored (frontend now collects audio)
+					o.logger.WithField("sessionID", sessionID).Debug("Ignoring non-final audio message (frontend collects audio)")
 				}
 
 			default:

@@ -1,0 +1,444 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # CORE MICROSERVICES
+  # =============================================================================
+
+  orchestrator:
+    build:
+      context: ./services/orchestrator
+      dockerfile: Dockerfile
+    container_name: voice-agent-orchestrator-v3
+    ports:
+      - "8081:8081"
+      - "9090:9090"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ORCHESTRATOR_HOST=0.0.0.0
+      - ORCHESTRATOR_PORT=8081
+      - ORCHESTRATOR_GRPC_PORT=9090
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models:ro
+    depends_on:
+      - kafka
+      - redis
+      - scylladb
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  media-server:
+    build:
+      context: ./services/media-server
+      dockerfile: Dockerfile
+    container_name: voice-agent-media-server-v3
+    ports:
+      - "8082:8082"
+      - "8083:8083"
+      - "8084:8084"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - MEDIA_SERVER_HOST=0.0.0.0
+      - MEDIA_SERVER_PORT=8082
+      - MEDIA_SERVER_WHIP_PORT=8083
+      - MEDIA_SERVER_WEBRTC_PORT=8084
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - orchestrator
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  stt-service:
+    build:
+      context: ./services/stt-service
+      dockerfile: Dockerfile
+    container_name: voice-agent-stt-service-v3
+    ports:
+      - "8085:8085"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ASR_SERVICE_HOST=0.0.0.0
+      - ASR_SERVICE_PORT=8085
+      - ASR_DEVICE=${ASR_DEVICE:-cuda}
+      - ASR_MODEL_PATH=/app/models/asr
+    volumes:
+      - ./logs:/app/logs
+      - ./models/asr:/app/models/asr:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    depends_on:
+      - orchestrator
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  nlp-service:
+    build:
+      context: ./services/nlp-service
+      dockerfile: Dockerfile
+    container_name: voice-agent-nlp-service-v3
+    ports:
+      - "8086:8086"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - NLP_SERVICE_HOST=0.0.0.0
+      - NLP_SERVICE_PORT=8086
+      - NLP_DEVICE=${NLP_DEVICE:-cuda}
+      - NLP_MODEL_PATH=/app/models/nlp
+    volumes:
+      - ./logs:/app/logs
+      - ./models/nlp:/app/models/nlp:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    depends_on:
+      - orchestrator
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  tts-service:
+    build:
+      context: ./services/tts-service
+      dockerfile: Dockerfile
+    container_name: voice-agent-tts-service-v3
+    ports:
+      - "8087:8087"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - TTS_SERVICE_HOST=0.0.0.0
+      - TTS_SERVICE_PORT=8087
+      - TTS_DEVICE=${TTS_DEVICE:-cuda}
+      - TTS_MODEL_PATH=/app/models/tts
+    volumes:
+      - ./logs:/app/logs
+      - ./models/tts:/app/models/tts:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    depends_on:
+      - orchestrator
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  handoff-service:
+    build:
+      context: ./services/handoff-service
+      dockerfile: Dockerfile
+    container_name: voice-agent-handoff-service-v3
+    ports:
+      - "8088:8088"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - HANDOFF_SERVICE_HOST=0.0.0.0
+      - HANDOFF_SERVICE_PORT=8088
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config:ro
+    depends_on:
+      - orchestrator
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  logging-service:
+    build:
+      context: ./services/logging-service
+      dockerfile: Dockerfile
+    container_name: voice-agent-logging-service-v3
+    ports:
+      - "8089:8089"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOGGING_SERVICE_HOST=0.0.0.0
+      - LOGGING_SERVICE_PORT=8089
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - elasticsearch
+      - logstash
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # API GATEWAY & LOAD BALANCER
+  # =============================================================================
+
+  api-gateway:
+    image: nginx:alpine
+    container_name: voice-agent-api-gateway-v3
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - orchestrator
+      - media-server
+      - stt-service
+      - nlp-service
+      - tts-service
+      - handoff-service
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # INFRASTRUCTURE SERVICES
+  # =============================================================================
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: voice-agent-kafka-v3
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+    depends_on:
+      - zookeeper
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: voice-agent-zookeeper-v3
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: voice-agent-redis-v3
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  scylladb:
+    image: scylladb/scylla:5.2.0
+    container_name: voice-agent-scylladb-v3
+    ports:
+      - "9042:9042"
+      - "9160:9160"
+      - "9180:9180"
+      - "7000:7000"
+      - "7001:7001"
+    environment:
+      - SCYLLA_DC=datacenter1
+      - SCYLLA_RACK=rack1
+      - SCYLLA_CLUSTER_NAME=voice-agent-cluster
+    volumes:
+      - scylla-data:/var/lib/scylla
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: voice-agent-minio-v3
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # MONITORING STACK
+  # =============================================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: voice-agent-prometheus-v3
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: voice-agent-grafana-v3
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: voice-agent-jaeger-v3
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "6831:6831/udp"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: voice-agent-elasticsearch-v3
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: voice-agent-logstash-v3
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./config/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: voice-agent-kibana-v3
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # DEVELOPMENT TOOLS
+  # =============================================================================
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: voice-agent-kafka-ui-v3
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    depends_on:
+      - kafka
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: voice-agent-redis-commander-v3
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    networks:
+      - voice-agent-network
+    restart: unless-stopped
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  redis-data:
+  scylla-data:
+  minio-data:
+  prometheus-data:
+  grafana-data:
+  elasticsearch-data:
+
+    # =============================================================================
+    # NETWORKS
+    # =============================================================================
+networks:
+  voice-agent-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

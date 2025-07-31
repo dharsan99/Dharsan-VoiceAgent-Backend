@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator-external-ssl
+  namespace: voice-agent-fresh
+  annotations:
+    service.beta.kubernetes.io/google-load-balancer-type: "External"
+    service.beta.kubernetes.io/google-load-balancer-backend-config: '{"default": {"healthCheck": {"checkIntervalSec": 30, "timeoutSec": 5, "healthyThreshold": 1, "unhealthyThreshold": 3, "type": "HTTPS", "requestPath": "/health"}}}'
+    # Use Google Cloud managed SSL certificates
+    service.beta.kubernetes.io/google-load-balancer-ssl-certificates: "managed-cert-orchestrator"
+spec:
+  selector:
+    app: orchestrator
+  ports:
+  - name: https
+    port: 443
+    targetPort: 8001
+    protocol: TCP
+  type: LoadBalancer 

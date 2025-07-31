@@ -362,15 +362,14 @@ async def synthesize_speech_get(
             text_file.write(text)
             text_file.flush()
             
-            # Execute Piper using file input (safer than shell echo)
+            # Execute Piper using stdin input (piper reads from stdin by default)
             command = [
                 piper_binary,
                 "--model", voice_model,
                 "--config", voice_config,
                 "--output_file", audio_file.name,
                 "--espeak_data", "/app/piper/espeak-ng-data",
-                "--length_scale", str(1.0 / speed),
-                text_file.name
+                "--length_scale", str(1.0 / speed)
             ]
             
             logger.info("Starting synthesis", 
@@ -380,6 +379,7 @@ async def synthesize_speech_get(
             
             result = subprocess.run(
                 command, 
+                input=text,  # Pass text via stdin
                 capture_output=True, 
                 text=True, 
                 timeout=60  # Increased timeout to 60 seconds

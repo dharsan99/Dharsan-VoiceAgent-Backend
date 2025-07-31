@@ -5,7 +5,7 @@ metadata:
   namespace: voice-agent-fresh
   labels:
     app: orchestrator
-    version: v2.0.1
+    version: v2.0.0
 spec:
   replicas: 1
   selector:
@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: orchestrator
-        image: us-central1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/orchestrator:v2.0.1
+        image: us-central1-docker.pkg.dev/speechtotext-466820/voice-agent-repo/orchestrator:v2.0.0
         ports:
         - containerPort: 8001
         env:
@@ -33,17 +33,11 @@ spec:
         - name: REDPANDA_PORT
           value: "9092"
         - name: ENABLE_HTTPS
-          value: "false" # Changed to false for Cloudflare proxy
+          value: "false"
         - name: ENVIRONMENT
           value: "production"
         - name: CORS_ALLOWED_ORIGINS
           value: "https://dharsan-voice-agent-frontend.vercel.app,https://voice-agent-frontend.vercel.app,https://groundedai.in,https://*.groundedai.in"
-        - name: STT_SERVICE_URL
-          value: "http://stt-service.voice-agent-fresh.svc.cluster.local:8000"
-        - name: TTS_SERVICE_URL
-          value: "http://tts-service.voice-agent-fresh.svc.cluster.local:5000"
-        - name: LLM_SERVICE_URL
-          value: "http://llm-service.voice-agent-fresh.svc.cluster.local:11434"
         resources:
           requests:
             memory: "256Mi"
@@ -63,26 +57,6 @@ spec:
             port: 8001
           initialDelaySeconds: 5
           periodSeconds: 5
-        volumeMounts:
-        - name: ssl-certs
-          mountPath: /etc/ssl/certs
-          readOnly: true
-        - name: ssl-keys
-          mountPath: /etc/ssl/private
-          readOnly: true
-      volumes:
-      - name: ssl-certs
-        secret:
-          secretName: ssl-certificates
-          items:
-          - key: server.crt
-            path: server.crt
-      - name: ssl-keys
-        secret:
-          secretName: ssl-certificates
-          items:
-          - key: server.key
-            path: server.key
 
 ---
 apiVersion: v1
@@ -96,4 +70,4 @@ spec:
   ports:
   - port: 8001
     targetPort: 8001
-  type: ClusterIP
+  type: ClusterIP 
